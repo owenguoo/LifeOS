@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "lifeos-ht6",
+  "private_key_id": "9a5b5efa43d98fdf72c05027d673d638fabb3373",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCpIQfcylvPjMrx\nbjJIBNhep5aLrSk5aT/N0aXqTl7oxpiyhFNuJvslfQd1ML01NXMi+Q1n+moJlvaS\nsVO1Yk1v3dWwlDozHyzXhPmyhy2MupOW4Sxbq8qkJNgcZbBwXWFw4we61aeBlcz9\nfdBrIP+gdzebFH3ee6zBwPIt8LuyH9V147UYoiQpPgI0tWBLA3jhcNQTv1o1gD/Y\nhI6a2Gpu5JTEUGaDjGR/vkr6UiLqe+24j7s2IWqavPO4ssOyCJeeALXHkyEusfYa\nqBGF4nJhjqtlxKpaYaBUHWLsirupfQ+dYycQ6CW4YnfSyaKmZUP05yPkLRVOMzLG\nrHCMqvJXAgMBAAECggEAEEus8MKUnwZPRXzbHmJNIK2gDTw1dSElcyTIii9b6Ky9\n6LFkQoBCAYYu8kUsbdSFD/EUMBkKH3tqrY6lZJwgnu8uWDGn++X8kZVv45ovstgF\nQWvXtMt0HmWoZvALVIBC07gkNgXA+nTfB+uX6cKHrsPd2TTbvdSHvDFlhDSmOQ69\nBgGIPCQ9ooMOsliloc9YDzlZVOrA39Dy6soitYoLuxywJDgGVOBpq5mg5hLYRnP6\ndqw1cvu8u2cJMdojJ0HenXyhp7uYHeHfiq8249EuQYkOEnLIJecsS4xTWi0U4807\n50sOzlvzDv4Xb1ihKFvtVdU61r1YlTAzXPXYJ68aiQKBgQDY+cJRoNIkS7koYpuC\nkW+iLZAxwvXxYNvEMN5DbGpNnLDW8WSXjFHTIIXEJjfwFa2YpqwrdqsbcsZEHuiD\nPQtdVeeM6MSpeESG8LlWXEREQQ/nP6suFjrcSBK9mZ3n3B3z18rn09AskCr+zfay\nK+QJKmimKh6oP6Wcp+rdkowV2QKBgQDHjEODyvwOl4lNTrEWUp9/66qcLtmYFD07\n/rC2ghkBOeP8YiXcrDy29BkGoLS6ojMkdFEj+wKdb7DuHtWK2ujr5nbOFTk4RBSM\nwcAgIVMDWMZMKnGEgknoSELhjGVA54k+QFs1JaumQHmJyQryi+8rrb9ZybKq0hLi\nmGnBnnc7rwKBgQCfkh9s9P9XHjGQF+USg288MJIpZp6F5Jv7j40GvQb5CVGs4l7+\nbX4H7ZUzCoB9GxROfdWFKYLxbtmNY8XQLubav8DJCq8Hi6GqNAO6FaVHJSpTAaoc\n/NBRDNhrhDxzNpj4qi1ZjZc+DtDwD/1sT4cnjn7kJXnidtyPd5btWUeZEQKBgDe4\nVvHqME/yyIgpvRE6qQcTS2SpQGFS5XZnO/j6gvjwrVTAI0pnXdzIdGSBY3Xp7NX1\nFOMzKBvGIGWdfotzbS7R/8Kz8nJfsE1NnNRb+c4pb9W81E3oA7M02lgY1/0zqgMT\n/WPtzOxzfHyZAtGPeY18yr3LsHQ6jMNxQ7apBSpJAoGBANbM2jzvAYccxKXSFauS\nMaQOBJONG8MCUkY6CydW8w268EWuTJuqy2apL1Qgb6aH6fUQ7R5wep3zNzF29R2a\n5qAXqjRo714UH0v40mjNarlRXOxGwV/gulNuKu+4h2EBF6HwpZYwB9Xz69ciEkLd\njvBeHip7aeuqqAzNMDQqmydP\n-----END PRIVATE KEY-----\n",
+  "client_email": "lifeos-calendar-service@lifeos-ht6.iam.gserviceaccount.com",
+  "client_id": "108111857997049970578",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/lifeos-calendar-service%40lifeos-ht6.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}

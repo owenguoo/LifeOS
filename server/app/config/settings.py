@@ -39,6 +39,10 @@ class Settings(BaseSettings):
     # Camera/Video Processing
     camera_index: Optional[str] = os.getenv("CAMERA_INDEX", "0")
     
+    # Google Calendar Integration
+    google_calendar_credentials_path: Optional[str] = None
+    google_calendar_id: Optional[str] = None
+    
     supabase_url: Optional[str] = os.getenv("SUPABASE_URL")
     supabase_key: Optional[str] = os.getenv("SUPABASE_KEY")
     
