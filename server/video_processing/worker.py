@@ -14,6 +14,7 @@ from database.supabase_client import SupabaseManager
 from app.services.embedding_service import embedding_service
 from app.services.vector_store import vector_store
 from app.models.memory import MemoryPoint
+from automations.automation_controller import AutomationController
 
 
 class VideoProcessingWorker:
@@ -27,6 +28,7 @@ class VideoProcessingWorker:
         self.supabase_manager = SupabaseManager()
         self.embedding_service = embedding_service
         self.vector_store = vector_store
+        self.automation_controller = AutomationController()
         self.index_id = None
         self.is_running = False
         self.processed_count = 0
@@ -185,6 +187,27 @@ class VideoProcessingWorker:
                         timestamp=job.get("timestamp", time.time())
                     )
                 )
+                
+                # Trigger automations based on the video summary
+                summary = analysis.get("detailed_summary", "")
+                if summary:
+                    automation_metadata = {
+                        "video_id": linking_uuid,
+                        "user_id": user_id,
+                        "timestamp": analysis.get("datetime"),
+                        "source": "video_processing",
+                        "worker_id": self.worker_id
+                    }
+                    
+                    # Run automations asynchronously (don't block processing)
+                    asyncio.create_task(
+                        self.run_automations_with_retry(
+                            video_id=linking_uuid,
+                            summary=summary,
+                            metadata=automation_metadata
+                        )
+                    )
+                    print(f"Worker {self.worker_id} triggered automations for: {linking_uuid}")
             else:
                 print(f"Worker {self.worker_id} failed to store in Supabase")
                 analysis["supabase_stored"] = False
@@ -342,5 +365,32 @@ class VideoProcessingWorker:
                 if attempt < max_retries - 1:
                     await asyncio.sleep(2 ** attempt)  # Exponential backoff
         
+        return False
+    
+    async def run_automations_with_retry(self, video_id: str, summary: str, metadata: dict, max_retries: int = 2) -> bool:
+        """Run automations with retry logic"""
+        for attempt in range(max_retries):
+            try:
+                print(f"Worker {self.worker_id} running automations for: {video_id} (attempt {attempt + 1})")
+                
+                automation_result = await self.automation_controller.process_video_summary(
+                    video_id=video_id,
+                    summary=summary,
+                    metadata=metadata
+                )
+                
+                if automation_result and "error" not in automation_result:
+                    triggered_automations = automation_result.get("automations_triggered", [])
+                    print(f"Worker {self.worker_id} automation success: {len(triggered_automations)} automations triggered")
+                    return True
+                else:
+                    print(f"Worker {self.worker_id} automation failed: {automation_result}")
+                    
+            except Exception as e:
+                print(f"Worker {self.worker_id} automation attempt {attempt + 1} failed: {e}")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(1)  # Short retry delay
+        
+        print(f"Worker {self.worker_id} automation failed after {max_retries} attempts")
         return False
     
