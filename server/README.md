@@ -26,7 +26,7 @@ server/
 │   ├── config/
 │   │   ├── __init__.py
 │   │   ├── settings.py         # Environment variables and app config
-│   │   └── database.py         # Database connection configs
+│   │   └── connections.py      # Redis, Qdrant, and S3 connection configs
 │   ├── api/
 │   │   ├── __init__.py
 │   │   ├── v1/
@@ -98,7 +98,7 @@ server/
 │   └── docker-compose.prod.yml # Production deployment
 ├── scripts/
 │   ├── setup.sh                # Environment setup script
-│   ├── migrate.py              # Database migration script
+│   ├── init_qdrant.py          # Vector database initialization
 │   └── seed_data.py            # Sample data seeding
 ├── requirements.txt            # Python dependencies
 ├── requirements-dev.txt        # Development dependencies
@@ -112,12 +112,12 @@ server/
 ### 1. Media Processing Pipeline
 - **Upload**: Video/audio files uploaded via API
 - **Processing**: Async workers process media using TwelveLabs
-- **Storage**: Raw files stored in S3, metadata in database
+- **Storage**: Raw files stored in S3, metadata in Redis
 - **Vectorization**: Summaries embedded into Qdrant for semantic search
 
 ### 2. Memory System
 - **Ingestion**: Continuous processing of real-life context
-- **Storage**: Structured data in database, vectors in Qdrant
+- **Storage**: Metadata in Redis, vectors in Qdrant, files in S3
 - **Retrieval**: Semantic search over memory using LLM queries
 - **Recall**: Context-aware memory retrieval with metadata
 
@@ -149,15 +149,12 @@ server/
 2. Copy `.env.example` to `.env` and configure variables
 3. Run `docker-compose up -d` for local development
 4. Install dependencies: `pip install -r requirements.txt`
-5. Run migrations: `python scripts/migrate.py`
+5. Initialize vector database: `python scripts/init_qdrant.py`
 6. Start the server: `uvicorn app.main:app --reload`
 
 ### Environment Variables
 
 ```bash
-# Database
-DATABASE_URL=postgresql://user:password@localhost/lifeos
-
 # Redis
 REDIS_URL=redis://localhost:6379
 
