@@ -37,8 +37,6 @@ class Settings(BaseSettings):
     jwt_secret: Optional[str] = None
     
     # Camera/Video Processing
-    camera_index: Optional[int] = None
-    
     camera_index: Optional[str] = os.getenv("CAMERA_INDEX", "0")
     
     supabase_url: Optional[str] = os.getenv("SUPABASE_URL")

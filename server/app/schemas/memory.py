@@ -35,6 +35,26 @@ class MemorySearchResponse(BaseModel):
     search_time_ms: float
 
 
+class ChatbotQueryRequest(BaseModel):
+    """Request schema for chatbot query"""
+    
+    user_input: str = Field(..., min_length=1, description="User's question or input")
+    confidence_threshold: Optional[float] = Field(default=0.7, ge=0.0, le=1.0, description="Minimum confidence score for video match")
+
+
+class ChatbotQueryResponse(BaseModel):
+    """Response schema for chatbot query"""
+    
+    original_input: str
+    refined_query: str
+    video_found: bool
+    video_id: Optional[str] = None
+    timestamp: Optional[str] = None
+    summary: Optional[str] = None
+    confidence_score: Optional[float] = None
+    processing_time_ms: float
+
+
 class MemoryResponse(BaseModel):
     """Response schema for a single memory"""
     
