@@ -15,7 +15,7 @@ from app.schemas.memory import (
     MemoryDeleteRequest,
     MemoryDeleteResponse,
     ChatbotQueryRequest,
-    ChatbotQueryResponse
+    ChatbotQueryResponse,
 )
 from app.models.memory import MemoryPoint
 from app.services.vector_store import vector_store
@@ -50,21 +50,21 @@ async def create_memory(request: MemoryCreateRequest):
             embedding_result = await embedding_service.process_video_embedding_pipeline(
                 file_path=request.content
             )
-        
+
         if not embedding_result:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to generate video embedding"
+                detail="Failed to generate video embedding",
             )
-        
+
         # Extract the video embedding from the result
         embedding = embedding_result.get("video_embedding")
         if not embedding:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="No video embedding found in result"
+                detail="No video embedding found in result",
             )
-        
+
         # Create memory point
         memory = MemoryPoint(
             user_id=DEMO_USER_ID,  # In real app, get from auth context
@@ -74,17 +74,17 @@ async def create_memory(request: MemoryCreateRequest):
             metadata={},  # Not stored in vector payload
             tags=[],  # Not stored in vector payload
             source_id=None,  # Not stored in vector payload
-            embedding=embedding
+            embedding=embedding,
         )
-        
+
         # Store in vector database
         success = await vector_store.add_memory(memory)
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to store memory"
+                detail="Failed to store memory",
             )
-        
+
         # Return response
         return MemoryResponse(
             id=memory.id,
@@ -93,16 +93,16 @@ async def create_memory(request: MemoryCreateRequest):
             timestamp=memory.timestamp,
             metadata=memory.metadata,
             tags=memory.tags,
-            source_id=memory.source_id
+            source_id=memory.source_id,
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error creating memory: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error"
+            detail="Internal server error",
         )
 
 
@@ -111,15 +111,15 @@ async def search_memories(request: MemorySearchRequest):
     """Search memories using semantic similarity"""
     try:
         start_time = time.time()
-        
+
         # Generate embedding for search query using text embedding service
         query_embedding = await text_embedding_service.get_embedding(request.query)
         if not query_embedding:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to generate query embedding"
+                detail="Failed to generate query embedding",
             )
-        
+
         # Search memories
         results = await vector_store.search_memories(
             user_id=DEMO_USER_ID,  # In real app, get from auth context
@@ -127,15 +127,15 @@ async def search_memories(request: MemorySearchRequest):
             limit=request.limit,
             date_from=request.date_from,
             date_to=request.date_to,
-            score_threshold=request.score_threshold or 0.5
+            score_threshold=request.score_threshold or 0.5,
         )
-        
+
         # Convert to response format and fetch Supabase data
         enriched_results = []
         for result in results:
             # Fetch full video data from Supabase using video_id
             video_data = await supabase_manager.get_video_analysis(result.video_id)
-            
+
             if video_data:
                 enriched_result = {
                     "id": str(result.id),
@@ -147,7 +147,7 @@ async def search_memories(request: MemorySearchRequest):
                     "detailed_summary": video_data.get("detailed_summary"),
                     "file_size": video_data.get("file_size"),
                     "processed_at": video_data.get("processed_at"),
-                    "user_id": video_data.get("user_id")
+                    "user_id": video_data.get("user_id"),
                 }
             else:
                 # Fallback if Supabase data not found
@@ -160,27 +160,27 @@ async def search_memories(request: MemorySearchRequest):
                     "detailed_summary": "Data not found",
                     "file_size": None,
                     "processed_at": None,
-                    "user_id": None
+                    "user_id": None,
                 }
-            
+
             enriched_results.append(enriched_result)
-        
+
         search_time = (time.time() - start_time) * 1000
-        
+
         return MemorySearchResponse(
             results=enriched_results,
             total_found=len(results),
             query=request.query,
-            search_time_ms=search_time
+            search_time_ms=search_time,
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error searching memories: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error"
+            detail="Internal server error",
         )
 
 
@@ -189,50 +189,51 @@ async def chatbot_query(request: ChatbotQueryRequest):
     """Chatbot endpoint that refines user input and finds the best matching video"""
     try:
         start_time = time.time()
-        
+
         # Step 1: Refine the user input using OpenAI
         refined_query = openai_service.refine_query(request.user_input)
         if not refined_query:
             # Fallback to original input if OpenAI fails
             refined_query = request.user_input
-        
+
         # Step 2: Generate embedding for the refined query
         query_embedding = await text_embedding_service.get_embedding(refined_query)
         if not query_embedding:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to generate query embedding"
+                detail="Failed to generate query embedding",
             )
-        
+
         # Step 3: Search for top 10 matches
         results = await vector_store.search_memories(
             user_id=DEMO_USER_ID,  # In real app, get from auth context
             query_vector=query_embedding,
             limit=10,  # Get top 10 matches
-            score_threshold=request.confidence_threshold or 0.7
+            score_threshold=request.confidence_threshold or 0.7,
         )
-        
+
         processing_time = (time.time() - start_time) * 1000
-        
+
         # Step 4: Filter results to within 24 hours of the top match
         if results and len(results) > 0:
             top_match = results[0]
             top_timestamp = top_match.timestamp
-            
+
             # Filter to videos within 24 hours of the top match
             from datetime import timedelta
+
             filtered_results = []
             for result in results:
                 time_diff = abs((result.timestamp - top_timestamp).total_seconds())
                 if time_diff <= 24 * 3600:  # 24 hours in seconds
                     filtered_results.append(result)
-            
+
             # Use the best match from filtered results
             best_match = filtered_results[0] if filtered_results else top_match
-            
+
             # Step 5: Fetch video data from Supabase using video_id
             video_data = await supabase_manager.get_video_analysis(best_match.video_id)
-            
+
             if video_data:
                 return ChatbotQueryResponse(
                     original_input=request.user_input,
@@ -242,7 +243,7 @@ async def chatbot_query(request: ChatbotQueryRequest):
                     timestamp=best_match.timestamp.isoformat(),
                     summary=video_data.get("detailed_summary"),
                     confidence_score=best_match.score,
-                    processing_time_ms=processing_time
+                    processing_time_ms=processing_time,
                 )
             else:
                 # Video found in vector store but not in Supabase
@@ -254,7 +255,7 @@ async def chatbot_query(request: ChatbotQueryRequest):
                     timestamp=best_match.timestamp.isoformat(),
                     summary="Video found but detailed summary not available",
                     confidence_score=best_match.score,
-                    processing_time_ms=processing_time
+                    processing_time_ms=processing_time,
                 )
         else:
             # No matching video found
@@ -262,16 +263,16 @@ async def chatbot_query(request: ChatbotQueryRequest):
                 original_input=request.user_input,
                 refined_query=refined_query,
                 video_found=False,
-                processing_time_ms=processing_time
+                processing_time_ms=processing_time,
             )
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error in chatbot query: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error"
+            detail="Internal server error",
         )
 
 
@@ -283,15 +284,26 @@ async def health_check():
         video_embedding_health = embedding_service.health_check()
         text_embedding_health = text_embedding_service.health_check()
         openai_health = openai_service.health_check()
-        
+
         return {
             "vector_store": "healthy" if vector_health else "unhealthy",
-            "video_embedding_service": "healthy" if video_embedding_health else "unhealthy",
-            "text_embedding_service": "healthy" if text_embedding_health else "unhealthy",
+            "video_embedding_service": (
+                "healthy" if video_embedding_health else "unhealthy"
+            ),
+            "text_embedding_service": (
+                "healthy" if text_embedding_health else "unhealthy"
+            ),
             "openai_service": "healthy" if openai_health else "unhealthy",
-            "overall": "healthy" if vector_health and video_embedding_health and text_embedding_health and openai_health else "unhealthy"
+            "overall": (
+                "healthy"
+                if vector_health
+                and video_embedding_health
+                and text_embedding_health
+                and openai_health
+                else "unhealthy"
+            ),
         }
-        
+
     except Exception as e:
         logger.error(f"Health check failed: {e}")
         return {
@@ -299,30 +311,27 @@ async def health_check():
             "video_embedding_service": "unhealthy",
             "text_embedding_service": "unhealthy",
             "openai_service": "unhealthy",
-            "overall": "unhealthy"
+            "overall": "unhealthy",
         }
-
-
-
 
 
 @router.delete("/delete", response_model=MemoryDeleteResponse)
 async def delete_memories(request: MemoryDeleteRequest):
     """Delete memories by their IDs"""
     try:
-        successful, failed, errors = await vector_store.delete_memories(request.memory_ids)
-        
-        return MemoryDeleteResponse(
-            deleted_count=successful,
-            failed_count=failed,
-            errors=errors
+        successful, failed, errors = await vector_store.delete_memories(
+            request.memory_ids
         )
-        
+
+        return MemoryDeleteResponse(
+            deleted_count=successful, failed_count=failed, errors=errors
+        )
+
     except Exception as e:
         logger.error(f"Error deleting memories: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error"
+            detail="Internal server error",
         )
 
 
@@ -332,15 +341,15 @@ async def get_collection_stats():
     try:
         stats = await vector_store.get_collection_stats()
         return stats
-        
+
     except Exception as e:
         logger.error(f"Error getting collection stats: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error"
+            detail="Internal server error",
         )
-        
-        
+
+
 @router.get("/{memory_id}", response_model=MemoryResponse)
 async def get_memory(memory_id: UUID):
     """Get a specific memory by ID"""
@@ -348,10 +357,9 @@ async def get_memory(memory_id: UUID):
         memory = await vector_store.get_memory(memory_id)
         if not memory:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Memory not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="Memory not found"
             )
-        
+
         return MemoryResponse(
             id=memory.id,
             content=memory.content,
@@ -359,16 +367,16 @@ async def get_memory(memory_id: UUID):
             timestamp=memory.timestamp,
             metadata=memory.metadata,
             tags=memory.tags,
-            source_id=memory.source_id
+            source_id=memory.source_id,
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error getting memory {memory_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error"
+            detail="Internal server error",
         )
 
 
@@ -378,15 +386,15 @@ async def get_recent_videos():
     try:
         # Query Supabase for recent videos
         recent_videos = await supabase_manager.get_recent_videos(limit=50)
-        
+
         return {
             "total_videos": len(recent_videos),
-            "recent_videos": recent_videos[:10]  # Show last 10
+            "recent_videos": recent_videos[:10],  # Show last 10
         }
-        
+
     except Exception as e:
         logger.error(f"Error getting recent videos: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get recent videos: {str(e)}"
+            detail=f"Failed to get recent videos: {str(e)}",
         )
