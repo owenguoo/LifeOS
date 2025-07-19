@@ -16,8 +16,6 @@ class Config:
     RESOLUTION = (1280, 720)  # 720p (width, height)
     SEGMENT_DURATION = 10  # seconds
 
-    # Storage settings
-    OUTPUT_DIR = "video_injestion/video_segments"
 
     # Camera settings (Mac FaceTime HD)
     CAMERA_INDEX = os.getenv("CAMERA_INDEX")
@@ -60,6 +58,3 @@ def set_segment_duration(seconds):
     Config.SEGMENT_DURATION = seconds
 
 
-def set_output_dir(directory):
-    """Set output directory for video segments"""
-    Config.OUTPUT_DIR = directory
