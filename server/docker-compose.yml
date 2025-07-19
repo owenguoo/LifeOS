@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  # Qdrant Vector Database
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: lifeos-qdrant
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    environment:
+      - QDRANT__SERVICE__HTTP_PORT=6333
+    networks:
+      - lifeos-network
+
+  # Redis (for future use)
+  redis:
+    image: redis:7-alpine
+    container_name: lifeos-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - lifeos-network
+
+  # LifeOS Server
+  lifeos-server:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: lifeos-server
+    ports:
+      - "8000:8000"
+    environment:
+      - QDRANT_URL=http://qdrant:6333
+      - REDIS_URL=redis://redis:6379
+      - DEBUG=True
+    depends_on:
+      - qdrant
+      - redis
+    volumes:
+      - .:/app
+    networks:
+      - lifeos-network
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+volumes:
+  qdrant_storage:
+  redis_data:
+
+networks:
+  lifeos-network:
+    driver: bridge 

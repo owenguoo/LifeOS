@@ -142,3 +142,4 @@ assets/generated/
 uploads/
 plans/ 
 test.py
+qdrant_storage/
