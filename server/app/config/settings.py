@@ -24,8 +24,16 @@ class Settings(BaseSettings):
     qdrant_url: str = "http://localhost:6333"
     qdrant_api_key: Optional[str] = None
     
+    # Supabase
+    supabase_url: Optional[str] = None
+    supabase_key: Optional[str] = None
+    supabase_anon_key: Optional[str] = None
+    
     # Auth
-    betterauth_secret: Optional[str] = None
+    jwt_secret: Optional[str] = None
+    
+    # Camera/Video Processing
+    camera_index: Optional[int] = None
     
     class Config:
         env_file = ".env"

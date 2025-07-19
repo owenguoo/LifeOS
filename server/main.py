@@ -16,13 +16,14 @@ from config import Config
 class VideoLifecycleManager:
     """Manages the complete video ingestion and processing lifecycle with Redis queues"""
     
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str, user_id: str = None):
         self.api_key = api_key
+        self.user_id = user_id
         self.ingestion_system = VideoIngestionSystem(
             fps=Config.FPS,
             resolution=Config.RESOLUTION,
             segment_duration=Config.SEGMENT_DURATION,
-            output_dir=Config.OUTPUT_DIR
+            user_id=user_id  # Pass user_id to ingestion system
         )
         self.worker_manager = WorkerManager(
             api_key=api_key,
