@@ -17,7 +17,7 @@ class Config:
     SEGMENT_DURATION = 10  # seconds
 
     # Storage settings
-    OUTPUT_DIR = "server/video_injestion/video_segments"
+    OUTPUT_DIR = "video_injestion/video_segments"
 
     # Camera settings (Mac FaceTime HD)
     CAMERA_INDEX = 1

@@ -10,15 +10,15 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, Optional
 from twelvelabs import TwelveLabs
-from server.config import Config
-from server.video_queue.queue_manager import VideoQueueManager
-from server.s3_storage import S3StorageManager
+from config import Config
+from video_queue.queue_manager import VideoQueueManager
+from video_injestion.s3_storage import S3StorageManager
 
 
 class VideoProcessingWorker:
     """Async worker that processes video segments from Redis queue"""
     
-    def __init__(self, worker_id: int, api_key: str, output_dir: str = "server/video_processing/processed_data"):
+    def __init__(self, worker_id: int, api_key: str, output_dir: str = "video_processing/processed_data"):
         self.worker_id = worker_id
         self.client = TwelveLabs(api_key=api_key)
         self.output_dir = Path(output_dir)

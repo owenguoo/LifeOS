@@ -7,8 +7,8 @@ from pathlib import Path
 import threading
 import queue
 import sys
-from server.config import Config
-from server.video_queue.queue_manager import VideoQueueManager
+from config import Config
+from video_queue.queue_manager import VideoQueueManager
 
 class VideoIngestionSystem:
     def __init__(self, 

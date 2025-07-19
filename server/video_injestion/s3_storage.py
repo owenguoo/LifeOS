@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from typing import Optional, Dict
 from botocore.exceptions import ClientError, NoCredentialsError
-from server.config import Config
+from config import Config
 
 
 class S3StorageManager:

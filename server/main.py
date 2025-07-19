@@ -7,10 +7,10 @@ import asyncio
 import sys
 import os
 from pathlib import Path
-from server.video_injestion.ingestion import VideoIngestionSystem
-from server.video_queue.worker_manager import WorkerManager
-from server.video_queue.queue_manager import VideoQueueManager
-from server.config import Config
+from video_injestion.ingestion import VideoIngestionSystem
+from video_queue.worker_manager import WorkerManager
+from video_queue.queue_manager import VideoQueueManager
+from config import Config
 
 
 class VideoLifecycleManager:
@@ -27,7 +27,7 @@ class VideoLifecycleManager:
         self.worker_manager = WorkerManager(
             api_key=api_key,
             num_workers=Config.NUM_WORKERS,
-            output_dir="server/video_processing/processed_data"
+            output_dir="video_processing/processed_data"
         )
         self.queue_manager = VideoQueueManager()
         
@@ -188,6 +188,10 @@ async def main():
         print("  export TWELVELABS_API_KEY='your_api_key_here'")
         print("  or update config.py with your API key")
         sys.exit(1)
+    
+    # Ensure api_key is not None for the manager
+    if api_key is None:
+        api_key = ""  # Provide empty string as fallback
     
     # Create lifecycle manager
     manager = VideoLifecycleManager(api_key)
