@@ -28,13 +28,9 @@ class MemorySearchResult(BaseModel):
     """Result from memory search"""
     
     id: UUID
-    content: str
-    content_type: str
+    video_id: str  # UUID to connect to postgres table
     timestamp: datetime
-    metadata: Dict[str, Any]
-    tags: List[str]
     score: float
-    source_id: Optional[str] = None
     
     class Config:
         json_encoders = {

@@ -6,10 +6,14 @@ import os
 import time
 from datetime import datetime
 from typing import Dict, Any, Optional
+from uuid import UUID
 from twelvelabs import TwelveLabs
 from video_queue.queue_manager import VideoQueueManager
 from video_injestion.s3_storage import S3StorageManager
 from database.supabase_client import SupabaseManager
+from app.services.embedding_service import embedding_service
+from app.services.vector_store import vector_store
+from app.models.memory import MemoryPoint
 
 
 class VideoProcessingWorker:
@@ -21,6 +25,8 @@ class VideoProcessingWorker:
         self.queue_manager = VideoQueueManager()
         self.s3_manager = S3StorageManager()
         self.supabase_manager = SupabaseManager()
+        self.embedding_service = embedding_service
+        self.vector_store = vector_store
         self.index_id = None
         self.is_running = False
         self.processed_count = 0
@@ -89,7 +95,9 @@ class VideoProcessingWorker:
         while self.is_running:
             try:
                 # Get next video segment from queue
+                print("Getting video segment from queue")
                 job = await self.queue_manager.get_video_segment(timeout=5)
+                print("Got video segment from queue")
                 
                 if job:
                     print(f"Worker {self.worker_id} processing: {job['video_path']}")
@@ -148,7 +156,9 @@ class VideoProcessingWorker:
                 s3_url = None
             
             # Analyze video (this awaits completion of both uploads)
-            analysis = await self.analyze_video(twelvelabs_video_id, job.get("timestamp", time.time()), linking_uuid)
+            # Type assertion since we've already checked it's not an exception
+            video_id = str(twelvelabs_video_id) if twelvelabs_video_id else ""
+            analysis = await self.analyze_video(video_id, job.get("timestamp", time.time()), linking_uuid)
             
             # Add processing metadata
             analysis["worker_id"] = self.worker_id
@@ -166,6 +176,15 @@ class VideoProcessingWorker:
             if supabase_uuid:
                 print(f"Worker {self.worker_id} stored analysis in Supabase: {supabase_uuid}")
                 analysis["supabase_stored"] = True
+                
+                # Asynchronously embed and store vector with retry (don't block processing)
+                asyncio.create_task(
+                    self.embed_and_store_video_with_retry(
+                        video_path=video_path,
+                        linking_uuid=linking_uuid,
+                        timestamp=job.get("timestamp", time.time())
+                    )
+                )
             else:
                 print(f"Worker {self.worker_id} failed to store in Supabase")
                 analysis["supabase_stored"] = False
@@ -176,7 +195,7 @@ class VideoProcessingWorker:
             print(f"Worker {self.worker_id} error processing video segment: {e}")
             return {"error": str(e), "video_path": job.get("video_path", "unknown")}
     
-    async def upload_video(self, video_path: str, metadata: Dict = None) -> Optional[str]:
+    async def upload_video(self, video_path: str, metadata: Optional[Dict] = None) -> Optional[str]:
         """Upload video to TwelveLabs"""
         try:
             if not self.index_id:
@@ -185,6 +204,8 @@ class VideoProcessingWorker:
             print(f"Worker {self.worker_id} uploading video: {video_path}")
             
             # Create video indexing task
+            if not self.index_id:
+                raise ValueError("Index ID not available")
             task = self.client.task.create(
                 index_id=self.index_id,
                 file=video_path
@@ -239,4 +260,87 @@ class VideoProcessingWorker:
                 "datetime": datetime.fromtimestamp(timestamp).isoformat(),
                 "detailed_summary": f"Error: {str(e)}"
             }
+    
+    async def embed_and_store_video(self, video_path: str, linking_uuid: str, timestamp: float) -> bool:
+        """Embed video and store in vector database"""
+        try:
+            print(f"Worker {self.worker_id} starting video embedding for: {video_path}")
+            
+            # Generate video embedding
+            embedding_result = await self.embedding_service.process_video_embedding_pipeline(
+                file_path=video_path
+            )
+            
+            if not embedding_result:
+                print(f"Worker {self.worker_id} failed to generate video embedding")
+                return False
+            
+            # Extract the embedding from the task result following the tutorial
+            task_result = embedding_result.get("embeddings")
+            if not task_result:
+                print(f"Worker {self.worker_id} no task result found")
+                return False
+
+            # Try to extract the embedding vector
+            video_embedding = None
+            
+            if hasattr(task_result, 'video_embedding') and task_result.video_embedding:
+                video_embedding_obj = task_result.video_embedding
+                print(f"Worker {self.worker_id} found video_embedding attribute")
+                
+                if hasattr(video_embedding_obj, 'segments') and video_embedding_obj.segments:
+                    first_segment = video_embedding_obj.segments[0]
+                    if hasattr(first_segment, 'embeddings_float'):
+                        video_embedding = first_segment.embeddings_float
+                    else:
+                        return False
+                else:
+                    return False
+            else:
+                return False
+            
+            if not video_embedding:
+                print(f"Worker {self.worker_id} could not extract video embedding from task result")
+                return False
+            
+            # Create memory point for vector storage
+            memory = MemoryPoint(
+                id=UUID(linking_uuid),  # Use the same UUID as Supabase
+                user_id=UUID("8c0ba789-5f7f-4fce-a651-ce08fb6c0024"),  # Demo user ID
+                content=video_path,
+                content_type="video",
+                timestamp=datetime.fromtimestamp(timestamp),
+                metadata={},
+                tags=[],
+                source_id=None,
+                embedding=video_embedding
+            )
+            
+            # Store in vector database
+            success = await self.vector_store.add_memory(memory)
+            
+            if success:
+                print(f"Worker {self.worker_id} stored video embedding in Qdrant: {linking_uuid}")
+                return True
+            else:
+                print(f"Worker {self.worker_id} failed to store video embedding")
+                return False
+                
+        except Exception as e:
+            print(f"Worker {self.worker_id} error embedding video: {e}")
+            return False
+    
+    async def embed_and_store_video_with_retry(self, video_path: str, linking_uuid: str, timestamp: float, max_retries: int = 3) -> bool:
+        """Embed video with retry logic"""
+        for attempt in range(max_retries):
+            try:
+                success = await self.embed_and_store_video(video_path, linking_uuid, timestamp)
+                if success:
+                    return True
+            except Exception as e:
+                print(f"Worker {self.worker_id} embedding attempt {attempt + 1} failed: {e}")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(2 ** attempt)  # Exponential backoff
+        
+        return False
     

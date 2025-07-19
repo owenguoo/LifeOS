@@ -18,11 +18,15 @@ from app.schemas.memory import (
 from app.models.memory import MemoryPoint
 from app.services.vector_store import vector_store
 from app.services.embedding_service import embedding_service
+from app.services.text_embedding_service import text_embedding_service
+from database.supabase_client import SupabaseManager
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+# Initialize Supabase manager
+supabase_manager = SupabaseManager()
 
 # Temporary user ID for demo purposes (in real app, this would come from auth)
 DEMO_USER_ID = UUID("8c0ba789-5f7f-4fce-a651-ce08fb6c0024")
@@ -32,23 +36,41 @@ DEMO_USER_ID = UUID("8c0ba789-5f7f-4fce-a651-ce08fb6c0024")
 async def create_memory(request: MemoryCreateRequest):
     """Create a new memory with vector embedding"""
     try:
-        # Generate embedding for the content
-        embedding = await embedding_service.get_embedding(request.content)
+        # Process video file/URL to get embedding
+        if request.content.startswith(("http://", "https://")):
+            # Process video URL
+            embedding_result = await embedding_service.process_video_embedding_pipeline(
+                video_url=request.content
+            )
+        else:
+            # Assume content is a file path
+            embedding_result = await embedding_service.process_video_embedding_pipeline(
+                file_path=request.content
+            )
+        
+        if not embedding_result:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to generate video embedding"
+            )
+        
+        # Extract the video embedding from the result
+        embedding = embedding_result.get("video_embedding")
         if not embedding:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to generate embedding"
+                detail="No video embedding found in result"
             )
         
         # Create memory point
         memory = MemoryPoint(
             user_id=DEMO_USER_ID,  # In real app, get from auth context
-            content=request.content,
-            content_type=request.content_type,
+            content=request.content,  # This will be the video file path or URL
+            content_type="video",  # Always video since we only store videos
             timestamp=datetime.utcnow(),
-            metadata=request.metadata,
-            tags=request.tags,
-            source_id=request.source_id,
+            metadata={},  # Not stored in vector payload
+            tags=[],  # Not stored in vector payload
+            source_id=None,  # Not stored in vector payload
             embedding=embedding
         )
         
@@ -87,8 +109,8 @@ async def search_memories(request: MemorySearchRequest):
     try:
         start_time = time.time()
         
-        # Generate embedding for search query
-        query_embedding = await embedding_service.get_embedding(request.query)
+        # Generate embedding for search query using text embedding service
+        query_embedding = await text_embedding_service.get_embedding(request.query)
         if not query_embedding:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -100,31 +122,50 @@ async def search_memories(request: MemorySearchRequest):
             user_id=DEMO_USER_ID,  # In real app, get from auth context
             query_vector=query_embedding,
             limit=request.limit,
-            content_types=request.content_types,
-            tags=request.tags,
             date_from=request.date_from,
             date_to=request.date_to,
             score_threshold=request.score_threshold or 0.5
         )
         
-        # Convert to response format
-        response_results = []
+        # Convert to response format and fetch Supabase data
+        enriched_results = []
         for result in results:
-            response_results.append({
-                "id": str(result.id),
-                "content": result.content,
-                "content_type": result.content_type,
-                "timestamp": result.timestamp.isoformat(),
-                "metadata": result.metadata,
-                "tags": result.tags,
-                "score": result.score,
-                "source_id": result.source_id
-            })
+            # Fetch full video data from Supabase using video_id
+            video_data = await supabase_manager.get_video_analysis(result.video_id)
+            
+            if video_data:
+                enriched_result = {
+                    "id": str(result.id),
+                    "video_id": result.video_id,
+                    "timestamp": result.timestamp.isoformat(),
+                    "score": result.score,
+                    # Add Supabase data
+                    "s3_url": video_data.get("s3_link"),
+                    "detailed_summary": video_data.get("detailed_summary"),
+                    "file_size": video_data.get("file_size"),
+                    "processed_at": video_data.get("processed_at"),
+                    "user_id": video_data.get("user_id")
+                }
+            else:
+                # Fallback if Supabase data not found
+                enriched_result = {
+                    "id": str(result.id),
+                    "video_id": result.video_id,
+                    "timestamp": result.timestamp.isoformat(),
+                    "score": result.score,
+                    "s3_url": None,
+                    "detailed_summary": "Data not found",
+                    "file_size": None,
+                    "processed_at": None,
+                    "user_id": None
+                }
+            
+            enriched_results.append(enriched_result)
         
         search_time = (time.time() - start_time) * 1000
         
         return MemorySearchResponse(
-            results=response_results,
+            results=enriched_results,
             total_found=len(results),
             query=request.query,
             search_time_ms=search_time
@@ -145,19 +186,22 @@ async def health_check():
     """Health check for vector store and embedding service"""
     try:
         vector_health = await vector_store.health_check()
-        embedding_health = embedding_service.health_check()
+        video_embedding_health = embedding_service.health_check()
+        text_embedding_health = text_embedding_service.health_check()
         
         return {
             "vector_store": "healthy" if vector_health else "unhealthy",
-            "embedding_service": "healthy" if embedding_health else "unhealthy",
-            "overall": "healthy" if vector_health and embedding_health else "unhealthy"
+            "video_embedding_service": "healthy" if video_embedding_health else "unhealthy",
+            "text_embedding_service": "healthy" if text_embedding_health else "unhealthy",
+            "overall": "healthy" if vector_health and video_embedding_health and text_embedding_health else "unhealthy"
         }
         
     except Exception as e:
         logger.error(f"Health check failed: {e}")
         return {
             "vector_store": "unhealthy",
-            "embedding_service": "unhealthy",
+            "video_embedding_service": "unhealthy",
+            "text_embedding_service": "unhealthy",
             "overall": "unhealthy"
         }
 
@@ -228,4 +272,24 @@ async def get_memory(memory_id: UUID):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
+        )
+
+
+@router.get("/recent-videos")
+async def get_recent_videos():
+    """Get recent videos"""
+    try:
+        # Query Supabase for recent videos
+        recent_videos = await supabase_manager.get_recent_videos(limit=50)
+        
+        return {
+            "total_videos": len(recent_videos),
+            "recent_videos": recent_videos[:10]  # Show last 10
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting recent videos: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get recent videos: {str(e)}"
         )

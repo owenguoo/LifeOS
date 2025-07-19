@@ -18,7 +18,7 @@ class Config:
 
 
     # Camera settings (Mac FaceTime HD)
-    CAMERA_INDEX = 1
+    CAMERA_INDEX = os.getenv("CAMERA_INDEX")
 
     # Queue settings
     MAX_FRAME_QUEUE_SIZE = 100

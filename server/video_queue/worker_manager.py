@@ -145,11 +145,11 @@ class WorkerManager:
         
         return stats
     
-    async def add_video_to_queue(self, video_path: str, metadata: dict = None) -> bool:
+    async def add_video_to_queue(self, video_path: str, metadata: dict = {}) -> bool:
         """Add a video to the processing queue"""
         return await self.queue_manager.add_video_segment(video_path, metadata)
     
-    async def add_batch_videos_to_queue(self, video_paths: List[str], metadata: dict = None) -> int:
+    async def add_batch_videos_to_queue(self, video_paths: List[str], metadata: dict = {}) -> int:
         """Add multiple videos to the processing queue"""
         return await self.queue_manager.add_batch_segments(video_paths, metadata)
 

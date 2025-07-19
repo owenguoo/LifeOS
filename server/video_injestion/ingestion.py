@@ -8,6 +8,7 @@ from pathlib import Path
 import threading
 import queue
 import sys
+import signal
 from config import Config
 from video_queue.queue_manager import VideoQueueManager
 
@@ -32,7 +33,11 @@ class VideoIngestionSystem:
         self.queue_manager = VideoQueueManager()
         
         # For Mac FaceTime HD camera
-        self.camera_index = Config.CAMERA_INDEX
+        self.camera_index = int(Config.CAMERA_INDEX) if Config.CAMERA_INDEX else 0
+        
+        # Thread management
+        self.capture_thread = None
+        self._shutdown_event = threading.Event()
         
     def initialize_camera(self):
         """Initialize the camera with proper settings for Mac FaceTime HD"""
@@ -82,7 +87,7 @@ class VideoIngestionSystem:
     
     def capture_frames(self):
         """Continuously capture frames and put them in queue"""
-        while self.is_recording:
+        while self.is_recording and not self._shutdown_event.is_set():
             try:
                 ret, frame = self.cap.read()
                 if ret:
@@ -105,6 +110,8 @@ class VideoIngestionSystem:
             except Exception as e:
                 print(f"Error in frame capture: {e}", file=sys.stderr)
                 time.sleep(0.1)
+        
+        print("Frame capture thread stopped")
     
     def create_video_segment(self, frames_data, segment_id):
         """Create a video segment file and return metadata"""
@@ -152,13 +159,13 @@ class VideoIngestionSystem:
         # Connect to queue manager
         await self.queue_manager.connect()
         
-        while self.is_recording:
+        while self.is_recording and not self._shutdown_event.is_set():
             try:
                 # Collect frames for segment_duration seconds
                 frames_for_segment = []
                 start_time = time.time()
                 
-                while (time.time() - start_time) < self.segment_duration and self.is_recording:
+                while (time.time() - start_time) < self.segment_duration and self.is_recording and not self._shutdown_event.is_set():
                     try:
                         frame, timestamp = self.frame_queue.get(timeout=0.1)
                         frames_for_segment.append((frame, timestamp))
@@ -189,6 +196,12 @@ class VideoIngestionSystem:
                 print(f"Error processing segment: {e}", file=sys.stderr)
                 await asyncio.sleep(1)
     
+    def signal_handler(self, signum, frame):
+        """Handle Ctrl+C signal"""
+        print(f"\nReceived signal {signum}, shutting down...")
+        self._shutdown_event.set()
+        self.is_recording = False
+    
     async def start_ingestion(self):
         """Start the video ingestion process"""
         if not self.initialize_camera():
@@ -199,27 +212,41 @@ class VideoIngestionSystem:
         print("Direct S3 upload mode - no local storage")
         print("Press Ctrl+C to stop")
         
+        # Set up signal handler for Ctrl+C
+        signal.signal(signal.SIGINT, self.signal_handler)
+        
         self.is_recording = True
+        self._shutdown_event.clear()
         
         # Start frame capture in separate thread
-        capture_thread = threading.Thread(target=self.capture_frames)
-        capture_thread.daemon = True
-        capture_thread.start()
+        self.capture_thread = threading.Thread(target=self.capture_frames)
+        self.capture_thread.daemon = True
+        self.capture_thread.start()
         
         # Start async segment processing
         try:
             await self.process_segments()
         except KeyboardInterrupt:
-            print("\nStopping ingestion...")
+            print("\nReceived KeyboardInterrupt, stopping ingestion...")
         finally:
             await self.stop_ingestion()
     
     async def stop_ingestion(self):
         """Stop the video ingestion process"""
+        print("Stopping video ingestion...")
         self.is_recording = False
+        self._shutdown_event.set()
+        
+        # Wait for capture thread to finish
+        if self.capture_thread and self.capture_thread.is_alive():
+            print("Waiting for capture thread to stop...")
+            self.capture_thread.join(timeout=2.0)
+            if self.capture_thread.is_alive():
+                print("Warning: Capture thread did not stop gracefully")
         
         if self.cap:
             self.cap.release()
+            self.cap = None
         
         await self.queue_manager.disconnect()
         print("Ingestion stopped")

@@ -117,34 +117,7 @@ class SupabaseManager:
             print(f"Error retrieving user videos: {e}")
             return []
     
-    async def update_vector_status(self, linking_uuid: str, vector_status: str, vector_id: Optional[str] = None) -> bool:
-        """
-        Update the vector embedding status for a record
-        
-        Args:
-            linking_uuid: UUID of the record to update
-            vector_status: Status of vector processing ('pending', 'processing', 'completed', 'failed')
-            vector_id: Optional vector database ID
-            
-        Returns:
-            True if successful, False otherwise
-        """
-        try:
-            update_data = {
-                'vector_status': vector_status,
-                'vector_updated_at': datetime.now().isoformat()
-            }
-            
-            if vector_id:
-                update_data['vector_id'] = vector_id
-            
-            result = self.client.table(self.table_name).update(update_data).eq("linking_uuid", linking_uuid).execute()
-            
-            return bool(result.data)
-            
-        except Exception as e:
-            print(f"Error updating vector status: {e}")
-            return False
+
     
     def check_table_exists(self) -> bool:
         """
@@ -159,3 +132,26 @@ class SupabaseManager:
         except Exception as e:
             print(f"Error accessing videos table: {e}")
             return False
+    
+    async def get_recent_videos(self, limit: int = 50) -> List[Dict[str, Any]]:
+        """
+        Get recent videos
+        
+        Args:
+            limit: Maximum number of records to return
+            
+        Returns:
+            List of video records
+        """
+        try:
+            result = (self.client.table(self.table_name)
+                     .select("*")
+                     .order("processed_at", desc=True)
+                     .limit(limit)
+                     .execute())
+            
+            return result.data if result.data else []
+            
+        except Exception as e:
+            print(f"Error retrieving recent videos: {e}")
+            return []
