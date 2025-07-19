@@ -1,11 +1,16 @@
 """
 Configuration settings for video ingestion system
 """
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 
 class Config:
     # TwelveLabs API settings
-    TWELVELABS_API_KEY = "tlk_1A0SW4S0CY2GSZ2H0V3A204BB39T"
+    TWELVELABS_API_KEY = os.getenv("TWELVELABS_API_KEY")
     # Video settings
     FPS = 30
     RESOLUTION = (1280, 720)  # 720p (width, height)
@@ -33,6 +38,10 @@ class Config:
     # Worker settings
     NUM_WORKERS = 3
     WORKER_BATCH_SIZE = 5
+    
+    # S3 settings
+    S3_BUCKET_NAME = "lifeos-video-segments"
+    S3_REGION = "us-east-1"
 
 
 # Easy adjustment functions

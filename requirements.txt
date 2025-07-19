@@ -1,0 +1,7 @@
+opencv-python>=4.8.0
+twelvelabs>=0.4.0
+redis>=4.5.0
+aioredis>=2.0.0
+asyncio-throttle>=1.0.0
+boto3>=1.34.0
+python-dotenv>=1.0.0

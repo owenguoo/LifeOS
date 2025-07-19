@@ -12,6 +12,7 @@ from typing import Dict, Any, Optional
 from twelvelabs import TwelveLabs
 from server.config import Config
 from server.video_queue.queue_manager import VideoQueueManager
+from server.s3_storage import S3StorageManager
 
 
 class VideoProcessingWorker:
@@ -23,6 +24,7 @@ class VideoProcessingWorker:
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(exist_ok=True)
         self.queue_manager = VideoQueueManager()
+        self.s3_manager = S3StorageManager()
         self.index_id = None
         self.is_running = False
         self.processed_count = 0
@@ -36,6 +38,9 @@ class VideoProcessingWorker:
         if not await self.queue_manager.connect():
             print(f"Worker {self.worker_id} failed to connect to queue")
             return
+        
+        # Ensure S3 bucket exists
+        self.s3_manager.create_bucket_if_not_exists()
         
         # Create or get index
         await self.ensure_index()
@@ -121,10 +126,26 @@ class VideoProcessingWorker:
             if not os.path.exists(video_path):
                 return {"error": f"Video file not found: {video_path}"}
             
-            # Upload video
-            video_id = await self.upload_video(video_path, metadata)
-            if not video_id:
-                return {"error": "Failed to upload video"}
+            # Run TwelveLabs upload and S3 upload in parallel
+            upload_tasks = await asyncio.gather(
+                self.upload_video(video_path, metadata),
+                asyncio.get_event_loop().run_in_executor(
+                    None, 
+                    self.s3_manager.upload_video_segment, 
+                    video_path
+                ),
+                return_exceptions=True
+            )
+            
+            video_id, s3_url = upload_tasks
+            
+            # Check if uploads succeeded
+            if isinstance(video_id, Exception) or not video_id:
+                return {"error": f"Failed to upload to TwelveLabs: {video_id}"}
+            
+            if isinstance(s3_url, Exception) or not s3_url:
+                print(f"⚠️ S3 upload failed: {s3_url}, continuing without S3 URL")
+                s3_url = None
             
             # Analyze video
             analysis = await self.analyze_video(video_id, job.get("timestamp", time.time()))
@@ -132,6 +153,7 @@ class VideoProcessingWorker:
             # Add processing metadata
             analysis["worker_id"] = self.worker_id
             analysis["source_file"] = video_path
+            analysis["s3_url"] = s3_url
             analysis["file_size"] = os.path.getsize(video_path)
             analysis["processed_at"] = datetime.now().isoformat()
             
