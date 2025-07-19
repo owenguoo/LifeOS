@@ -5,6 +5,7 @@ Handles calendar event creation and management
 import logging
 from typing import Dict, List, Any, Optional
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 import re
 import json
 import os
@@ -234,7 +235,9 @@ Respond only with valid JSON.
             Parsed datetime or None
         """
         try:
-            base_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            # Use EST timezone for all datetime operations
+            est_tz = ZoneInfo("America/New_York")
+            base_date = datetime.now(est_tz).replace(hour=0, minute=0, second=0, microsecond=0)
             target_date = base_date
             target_time = None
             
@@ -380,11 +383,11 @@ Respond only with valid JSON.
                         'location': location,
                         'start': {
                             'dateTime': start_time.isoformat(),
-                            'timeZone': 'UTC',
+                            'timeZone': 'America/New_York',
                         },
                         'end': {
                             'dateTime': end_time.isoformat() if end_time else (start_time + timedelta(hours=1)).isoformat(),
-                            'timeZone': 'UTC',
+                            'timeZone': 'America/New_York',
                         }
                     }
                     
