@@ -160,7 +160,8 @@ class VideoProcessingWorker:
             analysis["linking_uuid"] = linking_uuid
             
             # Store in Supabase instead of local file
-            supabase_uuid = await self.supabase_manager.insert_video_analysis(analysis)
+            user_id = job.get("user_id")
+            supabase_uuid = await self.supabase_manager.insert_video_analysis(analysis, user_id)
             
             if supabase_uuid:
                 print(f"Worker {self.worker_id} stored analysis in Supabase: {supabase_uuid}")
