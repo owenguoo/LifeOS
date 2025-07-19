@@ -1,11 +1,12 @@
 import Image from "next/image";
 import AnimatedSearchBar from "../components/AnimatedSearchBar";
+import Widget from "../components/Widget";
 
 export default function Home() {
   return (
     <div className="min-h-screen flex flex-col">
       {/* Top Header - Fixed */}
-      <header className="fixed top-8 left-0 right-0 z-20">
+      <header className="fixed top-20 md:top-12 left-0 right-0 z-20">
         <div className="container mx-auto px-4 py-4">
           <div className="flex flex-col items-center text-center gap-4">
             <h1 className="text-6xl font-semibold text-text-primary glow-light">LifeOS</h1>
@@ -19,19 +20,8 @@ export default function Home() {
       {/* Main Content Area */}
       <main className="flex-1 pt-20 pb-20 px-4 flex flex-col justify-center">
         <div className="container mx-auto max-w-md mx-auto px-16 space-y-12">
-          <AnimatedSearchBar 
-            placeholder="Search memories"
-          />
-
-          {/* Time Widget - Centered with padding */}
-          <div className="px-8">
-            <div className="bg-surface border border-border rounded-lg p-4">
-              <div className="text-center">
-                <div className="text-3xl font-mono text-text-primary">21:31</div>
-                <div className="text-sm text-text-secondary mt-1">Current Time</div>
-              </div>
-            </div>
-          </div>
+          <AnimatedSearchBar placeholder="Search memories" />
+          <Widget />
         </div>
       </main>
 
