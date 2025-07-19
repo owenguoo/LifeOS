@@ -32,7 +32,7 @@ router = APIRouter()
 supabase_manager = SupabaseManager()
 
 # Temporary user ID for demo purposes (in real app, this would come from auth)
-DEMO_USER_ID = UUID("01465a04-d0ec-4325-b189-f682e220ad40")
+DEMO_USER_ID = UUID("8c0ba789-5f7f-4fce-a651-ce08fb6c0024")
 
 
 @router.post("/create", response_model=MemoryResponse)
@@ -204,19 +204,31 @@ async def chatbot_query(request: ChatbotQueryRequest):
                 detail="Failed to generate query embedding"
             )
         
-        # Step 3: Search for the highest confidence match
+        # Step 3: Search for top 10 matches
         results = await vector_store.search_memories(
             user_id=DEMO_USER_ID,  # In real app, get from auth context
             query_vector=query_embedding,
-            limit=1,  # Only get the best match
+            limit=10,  # Get top 10 matches
             score_threshold=request.confidence_threshold or 0.7
         )
         
         processing_time = (time.time() - start_time) * 1000
         
-        # Step 4: Process results
+        # Step 4: Filter results to within 24 hours of the top match
         if results and len(results) > 0:
-            best_match = results[0]
+            top_match = results[0]
+            top_timestamp = top_match.timestamp
+            
+            # Filter to videos within 24 hours of the top match
+            from datetime import timedelta
+            filtered_results = []
+            for result in results:
+                time_diff = abs((result.timestamp - top_timestamp).total_seconds())
+                if time_diff <= 24 * 3600:  # 24 hours in seconds
+                    filtered_results.append(result)
+            
+            # Use the best match from filtered results
+            best_match = filtered_results[0] if filtered_results else top_match
             
             # Step 5: Fetch video data from Supabase using video_id
             video_data = await supabase_manager.get_video_analysis(best_match.video_id)
