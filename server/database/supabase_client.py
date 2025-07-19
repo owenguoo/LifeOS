@@ -107,7 +107,7 @@ class SupabaseManager:
             result = (self.client.table(self.table_name)
                      .select("*")
                      .eq("user_id", user_id)
-                     .order("created_at", desc=True)
+                     .order("timestamp", desc=True)
                      .range(offset, offset + limit - 1)
                      .execute())
             
