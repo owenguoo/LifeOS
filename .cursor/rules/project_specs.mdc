@@ -13,10 +13,17 @@
 - **Asyncio** – non-blocking tasks for video/audio jobs
 - **Redis + Redis Queue** – caching & job queuing for processing pipelines
 - **S3** – long-term video and transcript storage
-- **Qdrant** – vector database for semantic search of summaries and labels
+  - **Qdrant** – vector database for semantic search of videos
 - **TwelveLabs** – video-to-text summarizer API
-- **Open API** – understand automations (which tools to route to from clip summaries), embed summaries with metadata
-- **BetterAuth** 
+- **Open API** – understand automations (which tools to route to from clip summaries)
+- **Supabase** – Auth and storing video data (to link to vector with same UUID)
+CREATE TABLE video_data (
+    id UUID PRIMARY KEY,
+    s3_url TEXT,
+    summary TEXT,
+    task_id TEXT,
+    created_at TIMESTAMP
+);
 - **Docker**
 
 ### Frontend
@@ -31,8 +38,8 @@
 
 ### Context Capture & Search
 - Continuous ingestion of real-life media (video/audio)
-- Video summarization + labeling (via TwelveLabs)
-- Embedding into Qdrant for real-time, fuzzy semantic recall
+- Video summarization + embedding (via TwelveLabs)
+- Embedding into Qdrant
 - LLM-assisted querying of recent memory
 
 ### Agentic Automations

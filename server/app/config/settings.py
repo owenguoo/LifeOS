@@ -1,5 +1,9 @@
 from pydantic_settings import BaseSettings
 from typing import Optional
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 class Settings(BaseSettings):
@@ -17,7 +21,7 @@ class Settings(BaseSettings):
     s3_bucket: str = "lifeos-media"
     
     # APIs
-    twelvelabs_api_key: Optional[str] = None
+    twelvelabs_api_key: Optional[str] = os.getenv("TWELVELABS_API_KEY") 
     openai_api_key: Optional[str] = None
     
     # Vector Database (Qdrant)
@@ -26,6 +30,11 @@ class Settings(BaseSettings):
     
     # Auth
     betterauth_secret: Optional[str] = None
+    
+    camera_index: Optional[str] = os.getenv("CAMERA_INDEX", "0")
+    
+    supabase_url: Optional[str] = os.getenv("SUPABASE_URL")
+    supabase_key: Optional[str] = os.getenv("SUPABASE_KEY")
     
     class Config:
         env_file = ".env"
