@@ -6,15 +6,15 @@ import os
 import signal
 import sys
 from typing import List
-from server.config import Config
-from server.video_processing.worker import VideoProcessingWorker
-from server.video_queue.queue_manager import VideoQueueManager
+from config import Config
+from video_processing.worker import VideoProcessingWorker
+from video_queue.queue_manager import VideoQueueManager
 
 
 class WorkerManager:
     """Manages multiple video processing workers"""
     
-    def __init__(self, api_key: str, num_workers: int = None, output_dir: str = "server/video_processing/processed_data"):
+    def __init__(self, api_key: str, num_workers: int = None, output_dir: str = "video_processing/processed_data"):
         self.api_key = api_key
         self.num_workers = num_workers or Config.NUM_WORKERS
         self.output_dir = output_dir
