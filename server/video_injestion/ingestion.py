@@ -14,11 +14,13 @@ class VideoIngestionSystem:
     def __init__(self, 
                  fps=30, 
                  resolution=(1280, 720),
-                 segment_duration=10):
+                 segment_duration=10,
+                 user_id=None):
         
         self.fps = fps
         self.resolution = resolution
         self.segment_duration = segment_duration
+        self.user_id = user_id
         
         # Video capture setup
         self.cap = None
@@ -117,7 +119,8 @@ class VideoIngestionSystem:
                 "fps": self.fps,
                 "resolution": self.resolution,
                 "frame_count": len(frames_data),
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
+                "user_id": self.user_id
             }
             
             print(f"Created segment {segment_id} with {len(frames_data)} frames")
