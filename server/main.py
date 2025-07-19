@@ -22,12 +22,10 @@ class VideoLifecycleManager:
             fps=Config.FPS,
             resolution=Config.RESOLUTION,
             segment_duration=Config.SEGMENT_DURATION,
-            output_dir=Config.OUTPUT_DIR
         )
         self.worker_manager = WorkerManager(
             api_key=api_key,
             num_workers=Config.NUM_WORKERS,
-            output_dir="video_processing/processed_data"
         )
         self.queue_manager = VideoQueueManager()
         
@@ -75,25 +73,13 @@ class VideoLifecycleManager:
         # Connect to queue manager
         await self.queue_manager.connect()
         
-        # Get all video files
-        video_dir = Path(Config.OUTPUT_DIR)
-        video_files = list(video_dir.glob("*.mp4"))
         
-        if not video_files:
-            print(f"No video files found in {video_dir}")
-            return []
-        
-        print(f"Found {len(video_files)} video files to add to queue")
         
         # Add all videos to queue
-        video_paths = [str(f) for f in video_files]
-        added_count = await self.queue_manager.add_batch_segments(video_paths)
         
-        print(f"✅ Added {added_count} video files to processing queue")
         print("💡 Start workers to process these files: python worker_manager.py")
         
         await self.queue_manager.disconnect()
-        return video_paths
     
     async def monitor_queue(self):
         """Monitor the Redis queue status"""
@@ -137,7 +123,6 @@ def print_usage():
     print(f"  - Resolution: {Config.RESOLUTION[0]}x{Config.RESOLUTION[1]}")
     print(f"  - FPS: {Config.FPS}")
     print(f"  - Segment Duration: {Config.SEGMENT_DURATION}s")
-    print(f"  - Output Directory: {Config.OUTPUT_DIR}")
     print(f"  - Number of Workers: {Config.NUM_WORKERS}")
     print(f"  - Redis Queue: {Config.REDIS_QUEUE_NAME}")
     print()

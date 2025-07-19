@@ -26,12 +26,13 @@ class SupabaseManager:
         """Generate UUID for linking JSON and vector db records"""
         return str(uuid.uuid4())
     
-    async def insert_video_analysis(self, analysis_data: Dict[str, Any]) -> Optional[str]:
+    async def insert_video_analysis(self, analysis_data: Dict[str, Any], user_id: Optional[str] = None) -> Optional[str]:
         """
         Insert video analysis data into Supabase videos table
         
         Args:
             analysis_data: Dictionary containing video analysis results
+            user_id: UUID of the user who owns this video
             
         Returns:
             UUID of the inserted record or None if failed
@@ -45,7 +46,8 @@ class SupabaseManager:
                 'detailed_summary': analysis_data.get('detailed_summary'),
                 's3_link': analysis_data.get('s3_url'),
                 'file_size': analysis_data.get('file_size'),
-                'processed_at': analysis_data.get('processed_at')
+                'processed_at': analysis_data.get('processed_at'),
+                'user_id': user_id
             }
             
             # Insert into Supabase

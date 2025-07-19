@@ -14,10 +14,9 @@ from video_queue.queue_manager import VideoQueueManager
 class WorkerManager:
     """Manages multiple video processing workers"""
     
-    def __init__(self, api_key: str, num_workers: int = None, output_dir: str = "video_processing/processed_data"):
+    def __init__(self, api_key: str, num_workers: int = None):
         self.api_key = api_key
         self.num_workers = num_workers or Config.NUM_WORKERS
-        self.output_dir = output_dir
         self.workers: List[VideoProcessingWorker] = []
         self.worker_tasks: List[asyncio.Task] = []
         self.queue_manager = VideoQueueManager()
@@ -35,7 +34,6 @@ class WorkerManager:
             worker = VideoProcessingWorker(
                 worker_id=worker_id,
                 api_key=self.api_key,
-                output_dir=self.output_dir
             )
             self.workers.append(worker)
             
