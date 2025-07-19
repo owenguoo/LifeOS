@@ -16,7 +16,7 @@ from config import Config
 class VideoLifecycleManager:
     """Manages the complete video ingestion and processing lifecycle with Redis queues"""
     
-    def __init__(self, api_key: str, user_id: str = None):
+    def __init__(self, api_key: str, user_id: str = ""):
         self.api_key = api_key
         self.user_id = user_id
         self.ingestion_system = VideoIngestionSystem(
@@ -112,7 +112,6 @@ def print_usage():
     print("  ingestion    - Start video ingestion only (puts segments in Redis queue)")
     print("  workers      - Start video processing workers only (processes from Redis queue)")
     print("  both         - Start both systems (default)")
-    print("  batch        - Add existing video files to Redis queue")
     print("  monitor      - Monitor Redis queue status")
     print("  help         - Show this help message")
     print()
@@ -162,7 +161,7 @@ async def main():
         return
     
     # Check Redis connection for modes that need it
-    if mode in ["ingestion", "workers", "both", "batch", "monitor"]:
+    if mode in ["ingestion", "workers", "both", "monitor"]:
         if not await check_redis_connection():
             print("❌ Redis is required for this mode. Please start Redis server.")
             sys.exit(1)
@@ -188,8 +187,6 @@ async def main():
             await manager.start_ingestion_only()
         elif mode == "workers":
             await manager.start_workers_only()
-        elif mode == "batch":
-            await manager.batch_process_existing()
         elif mode == "monitor":
             await manager.monitor_queue()
         elif mode == "both":

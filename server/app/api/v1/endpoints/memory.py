@@ -19,11 +19,14 @@ from app.models.memory import MemoryPoint
 from app.services.vector_store import vector_store
 from app.services.embedding_service import embedding_service
 from app.services.text_embedding_service import text_embedding_service
+from database.supabase_client import SupabaseManager
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+# Initialize Supabase manager
+supabase_manager = SupabaseManager()
 
 # Temporary user ID for demo purposes (in real app, this would come from auth)
 DEMO_USER_ID = UUID("8c0ba789-5f7f-4fce-a651-ce08fb6c0024")
@@ -124,20 +127,45 @@ async def search_memories(request: MemorySearchRequest):
             score_threshold=request.score_threshold or 0.5
         )
         
-        # Convert to response format
-        response_results = []
+        # Convert to response format and fetch Supabase data
+        enriched_results = []
         for result in results:
-            response_results.append({
-                "id": str(result.id),
-                "video_id": result.video_id,
-                "timestamp": result.timestamp.isoformat(),
-                "score": result.score
-            })
+            # Fetch full video data from Supabase using video_id
+            video_data = await supabase_manager.get_video_analysis(result.video_id)
+            
+            if video_data:
+                enriched_result = {
+                    "id": str(result.id),
+                    "video_id": result.video_id,
+                    "timestamp": result.timestamp.isoformat(),
+                    "score": result.score,
+                    # Add Supabase data
+                    "s3_url": video_data.get("s3_link"),
+                    "detailed_summary": video_data.get("detailed_summary"),
+                    "file_size": video_data.get("file_size"),
+                    "processed_at": video_data.get("processed_at"),
+                    "user_id": video_data.get("user_id")
+                }
+            else:
+                # Fallback if Supabase data not found
+                enriched_result = {
+                    "id": str(result.id),
+                    "video_id": result.video_id,
+                    "timestamp": result.timestamp.isoformat(),
+                    "score": result.score,
+                    "s3_url": None,
+                    "detailed_summary": "Data not found",
+                    "file_size": None,
+                    "processed_at": None,
+                    "user_id": None
+                }
+            
+            enriched_results.append(enriched_result)
         
         search_time = (time.time() - start_time) * 1000
         
         return MemorySearchResponse(
-            results=response_results,
+            results=enriched_results,
             total_found=len(results),
             query=request.query,
             search_time_ms=search_time
@@ -244,4 +272,24 @@ async def get_memory(memory_id: UUID):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
+        )
+
+
+@router.get("/recent-videos")
+async def get_recent_videos():
+    """Get recent videos"""
+    try:
+        # Query Supabase for recent videos
+        recent_videos = await supabase_manager.get_recent_videos(limit=50)
+        
+        return {
+            "total_videos": len(recent_videos),
+            "recent_videos": recent_videos[:10]  # Show last 10
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting recent videos: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get recent videos: {str(e)}"
         )

@@ -28,38 +28,21 @@ class EmbeddingService:
         try:
             print(f"   📁 Using file: {file_path}" if file_path else f"   🌐 Using URL: {video_url}")
             
-            # Default scopes if not provided
-            if scopes is None:
-                scopes = ['clip', 'video']
-            
-            print(f"   🎯 Embedding scopes: {scopes}")
-            
-            # Create embedding task parameters
-            if file_path:
-                params = {
-                    "video_file": file_path,
-                    "video_embedding_scopes": scopes
-                }
-            else:
-                params = {
-                    "video_url": video_url,
-                    "video_embedding_scopes": scopes
-                }
-            
-            # Add optional parameters if provided
-            if start_offset_sec is not None:
-                params["video_start_offset_sec"] = start_offset_sec
-            if end_offset_sec is not None:
-                params["video_end_offset_sec"] = end_offset_sec
-            if clip_length is not None:
-                params["video_clip_length"] = int(clip_length)
-            
-            # Create the embedding task using the correct API path
+            # Create the embedding task following the tutorial exactly
             print("   🤖 Calling TwelveLabs API to create embedding task...")
-            task = self.client.embed.task.create(
-                model_name="Marengo-retrieval-2.7",
-                **params
-            )
+            
+            if file_path:
+                # For file upload, use video_file parameter
+                task = self.client.embed.task.create(
+                    model_name="Marengo-retrieval-2.7",
+                    video_file=file_path
+                )
+            else:
+                # For URL, use video_url parameter
+                task = self.client.embed.task.create(
+                    model_name="Marengo-retrieval-2.7",
+                    video_url=video_url
+                )
             
             if task:
                 print(f"   ✅ Created task: id={task.id} model_name={task.model_name} status={task.status}")
@@ -130,25 +113,24 @@ class EmbeddingService:
     ) -> Optional[Dict[str, Any]]:
         """Retrieve video embeddings for a completed task"""
         try:
-            # Default embedding options if not provided
-            if embedding_options is None:
-                embedding_options = ['visual-text', 'audio']
-            
-            print(f"   📊 Retrieving embeddings with options: {embedding_options}")
-            
             print("   🔄 Retrieving embeddings from TwelveLabs...")
-            # Retrieve embeddings using the task object directly
-            embeddings_task = task.retrieve(
-                embedding_option=embedding_options
-            )
             
-            if embeddings_task:
+            # Step 3: Retrieve the embeddings (following TwelveLabs tutorial)
+            task_result = self.client.embed.task.retrieve(task.id)
+            
+            if task_result:
                 logger.info(f"Retrieved embeddings for task {task.id}")
+                
+                # Debug: Check what attributes are available
+                print(f"   🔍 Task result type: {type(task_result)}")
+                print(f"   🔍 Task result attributes: {[attr for attr in dir(task_result) if not attr.startswith('_')]}")
+                
+                # For now, return the task result and let the calling code handle the structure
+                # This will help us understand what the actual structure is
                 return {
                     "task_id": task.id,
-                    "embeddings": embeddings_task,
-                    "clips": getattr(embeddings_task, 'clips', []),
-                    "video_embedding": getattr(embeddings_task, 'video_embedding', None)
+                    "embeddings": task_result,
+                    "video_embedding": None  # We'll extract this in the calling code
                 }
             else:
                 logger.error(f"Failed to retrieve embeddings for task {task.id}")

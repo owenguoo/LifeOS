@@ -12,7 +12,7 @@ from config import Config
 class VideoQueueManager:
     """Manages Redis queues for video processing pipeline"""
     
-    def __init__(self, redis_url: str = None):
+    def __init__(self, redis_url: str = ""):
         self.redis_url = redis_url or f"redis://{Config.REDIS_HOST}:{Config.REDIS_PORT}/{Config.REDIS_DB}"
         self.redis = None
         self.queue_name = Config.REDIS_QUEUE_NAME
@@ -33,7 +33,7 @@ class VideoQueueManager:
         if self.redis:
             await self.redis.aclose()
     
-    async def add_video_segment(self, video_path: str, metadata: Dict[str, Any] = None) -> bool:
+    async def add_video_segment(self, video_path: str, metadata: Dict[str, Any] = {}) -> bool:
         """Add a video segment to the processing queue"""
         try:
             if not self.redis:
@@ -55,6 +55,27 @@ class VideoQueueManager:
             print(f"Error adding video to queue: {e}")
             return False
     
+    async def add_video_segment_data(self, segment_data: Dict[str, Any]) -> bool:
+        """Add video segment data directly to the processing queue"""
+        try:
+            if not self.redis:
+                await self.connect()
+            
+            job_data = {
+                "segment_data": segment_data,
+                "timestamp": time.time(),
+                "status": "pending"
+            }
+            
+            # Add to queue using LPUSH (left push)
+            await self.redis.lpush(self.queue_name, json.dumps(job_data))
+            print(f"Added video segment data to queue: segment_id={segment_data.get('segment_id')}")
+            return True
+            
+        except Exception as e:
+            print(f"Error adding video segment data to queue: {e}")
+            return False
+    
     async def get_video_segment(self, timeout: int = 5) -> Optional[Dict[str, Any]]:
         """Get next video segment from the processing queue"""
         try:
@@ -62,7 +83,7 @@ class VideoQueueManager:
                 await self.connect()
             
             # Use BRPOP (blocking right pop) with timeout
-            result = await self.redis.brpop(self.queue_name, timeout=timeout)
+            result = await self.redis.brpop([self.queue_name], timeout=timeout)
             
             if result:
                 queue_name, job_data = result
@@ -95,7 +116,7 @@ class VideoQueueManager:
             print(f"Error clearing queue: {e}")
             return False
     
-    async def add_batch_segments(self, video_paths: list, metadata: Dict[str, Any] = None) -> int:
+    async def add_batch_segments(self, video_paths: list, metadata: Dict[str, Any] = {}) -> int:
         """Add multiple video segments to queue in batch"""
         try:
             if not self.redis:
