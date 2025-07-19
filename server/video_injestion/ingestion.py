@@ -2,6 +2,7 @@ import asyncio
 import cv2
 import os
 import time
+import tempfile
 from datetime import datetime
 from pathlib import Path
 import threading
@@ -106,16 +107,30 @@ class VideoIngestionSystem:
                 time.sleep(0.1)
     
     def create_video_segment(self, frames_data, segment_id):
-        """Create a video segment in memory and return frame data"""
+        """Create a video segment file and return metadata"""
         if not frames_data:
             return None
             
         try:
-            # Return the frame data directly for processing
-            # No local file saving needed since we upload to S3
+            # Create temporary video file
+            temp_file = tempfile.NamedTemporaryFile(suffix='.mp4', delete=False)
+            temp_path = temp_file.name
+            temp_file.close()
+            
+            # Create video writer
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+            writer = cv2.VideoWriter(temp_path, fourcc, self.fps, self.resolution)
+            
+            # Write frames to video file
+            for frame, timestamp in frames_data:
+                writer.write(frame)
+            
+            writer.release()
+            
+            # Return metadata with file path
             segment_info = {
                 "segment_id": segment_id,
-                "frames": frames_data,
+                "video_path": temp_path,
                 "fps": self.fps,
                 "resolution": self.resolution,
                 "frame_count": len(frames_data),
@@ -123,7 +138,7 @@ class VideoIngestionSystem:
                 "user_id": self.user_id
             }
             
-            print(f"Created segment {segment_id} with {len(frames_data)} frames")
+            print(f"Created segment {segment_id} with {len(frames_data)} frames at {temp_path}")
             return segment_info
             
         except Exception as e:
@@ -162,8 +177,10 @@ class VideoIngestionSystem:
                     )
                     
                     if segment_info:
-                        # Add segment info directly to Redis queue for processing
-                        await self.queue_manager.add_video_segment_data(segment_info)
+                        # Add video file to Redis queue for processing
+                        video_path = segment_info["video_path"]
+                        metadata = {k: v for k, v in segment_info.items() if k != "video_path"}
+                        await self.queue_manager.add_video_segment(video_path, metadata)
                         print(f"Added segment {segment_id} to processing queue")
                     
                     segment_id += 1

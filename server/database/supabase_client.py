@@ -47,7 +47,7 @@ class SupabaseManager:
                 's3_link': analysis_data.get('s3_url'),
                 'file_size': analysis_data.get('file_size'),
                 'processed_at': analysis_data.get('processed_at'),
-                'user_id': user_id  # Add user_id to the record
+                'user_id': user_id
             }
             
             # Insert into Supabase
