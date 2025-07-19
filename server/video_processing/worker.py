@@ -5,14 +5,13 @@ import asyncio
 import json
 import os
 import time
-import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, Optional
 from twelvelabs import TwelveLabs
-from config import Config
 from video_queue.queue_manager import VideoQueueManager
 from video_injestion.s3_storage import S3StorageManager
+from database.supabase_client import SupabaseManager
 
 
 class VideoProcessingWorker:
@@ -25,6 +24,7 @@ class VideoProcessingWorker:
         self.output_dir.mkdir(exist_ok=True)
         self.queue_manager = VideoQueueManager()
         self.s3_manager = S3StorageManager()
+        self.supabase_manager = SupabaseManager()
         self.index_id = None
         self.is_running = False
         self.processed_count = 0
@@ -126,6 +126,10 @@ class VideoProcessingWorker:
             if not os.path.exists(video_path):
                 return {"error": f"Video file not found: {video_path}"}
             
+            # Generate linking UUID first to avoid bottleneck
+            linking_uuid = self.supabase_manager.generate_linking_uuid()
+            print(f"Worker {self.worker_id} generated linking UUID: {linking_uuid}")
+            
             # Run TwelveLabs upload and S3 upload in parallel
             upload_tasks = await asyncio.gather(
                 self.upload_video(video_path, metadata),
@@ -137,18 +141,18 @@ class VideoProcessingWorker:
                 return_exceptions=True
             )
             
-            video_id, s3_url = upload_tasks
+            twelvelabs_video_id, s3_url = upload_tasks
             
             # Check if uploads succeeded
-            if isinstance(video_id, Exception) or not video_id:
-                return {"error": f"Failed to upload to TwelveLabs: {video_id}"}
+            if isinstance(twelvelabs_video_id, Exception) or not twelvelabs_video_id:
+                return {"error": f"Failed to upload to TwelveLabs: {twelvelabs_video_id}"}
             
             if isinstance(s3_url, Exception) or not s3_url:
                 print(f"⚠️ S3 upload failed: {s3_url}, continuing without S3 URL")
                 s3_url = None
             
-            # Analyze video
-            analysis = await self.analyze_video(video_id, job.get("timestamp", time.time()))
+            # Analyze video (this awaits completion of both uploads)
+            analysis = await self.analyze_video(twelvelabs_video_id, job.get("timestamp", time.time()), linking_uuid)
             
             # Add processing metadata
             analysis["worker_id"] = self.worker_id
@@ -156,11 +160,26 @@ class VideoProcessingWorker:
             analysis["s3_url"] = s3_url
             analysis["file_size"] = os.path.getsize(video_path)
             analysis["processed_at"] = datetime.now().isoformat()
+            analysis["twelvelabs_video_id"] = twelvelabs_video_id
+            analysis["linking_uuid"] = linking_uuid
             
-            # Save analysis
-            analysis_filename = f"analysis_{Path(video_path).stem}_worker{self.worker_id}.json"
-            analysis_path = await self.save_analysis(analysis, analysis_filename)
-            analysis["analysis_file"] = analysis_path
+            # Store in Supabase instead of local file
+            supabase_uuid = await self.supabase_manager.insert_video_analysis(analysis)
+            
+            if supabase_uuid:
+                print(f"Worker {self.worker_id} stored analysis in Supabase: {supabase_uuid}")
+                analysis["supabase_stored"] = True
+                
+                # Optional: Still save local backup for debugging
+                analysis_filename = f"analysis_{Path(video_path).stem}_worker{self.worker_id}.json"
+                analysis_path = await self.save_analysis(analysis, analysis_filename)
+                analysis["analysis_file"] = analysis_path
+            else:
+                print(f"Worker {self.worker_id} failed to store in Supabase, saving locally only")
+                analysis["supabase_stored"] = False
+                analysis_filename = f"analysis_{Path(video_path).stem}_worker{self.worker_id}.json"
+                analysis_path = await self.save_analysis(analysis, analysis_filename)
+                analysis["analysis_file"] = analysis_path
             
             return analysis
             
@@ -204,7 +223,7 @@ class VideoProcessingWorker:
             print(f"Worker {self.worker_id} error uploading video: {e}")
             return None
     
-    async def analyze_video(self, video_id: str, timestamp: float) -> Dict:
+    async def analyze_video(self, video_id: str, timestamp: float, linking_uuid: str) -> Dict:
         """Analyze video using TwelveLabs Pegasus"""
         try:
             # Generate detailed summary
@@ -213,9 +232,9 @@ class VideoProcessingWorker:
                 prompt="Provide a detailed summary of what's happening in this video segment, including any people, objects, actions, and conversations."
             )
             
-            # Return simplified format
+            # Return simplified format with linking UUID
             analysis_results = {
-                "video_id": str(uuid.uuid4()),  # Generate unique UUID
+                "video_id": linking_uuid,  # Use linking UUID for consistency
                 "timestamp": timestamp,
                 "datetime": datetime.fromtimestamp(timestamp).isoformat(),
                 "detailed_summary": generation_result.data
@@ -226,7 +245,7 @@ class VideoProcessingWorker:
         except Exception as e:
             print(f"Worker {self.worker_id} error analyzing video: {e}")
             return {
-                "video_id": str(uuid.uuid4()),
+                "video_id": linking_uuid,  # Use linking UUID even for errors
                 "timestamp": timestamp,
                 "datetime": datetime.fromtimestamp(timestamp).isoformat(),
                 "detailed_summary": f"Error: {str(e)}"
