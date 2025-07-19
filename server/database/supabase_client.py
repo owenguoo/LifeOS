@@ -4,7 +4,7 @@ Supabase client for video analysis data storage
 import os
 import uuid
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from supabase import create_client, Client
 from config import Config
 
@@ -63,18 +63,25 @@ class SupabaseManager:
             print(f"Error inserting video analysis: {e}")
             return None
     
-    async def get_video_analysis(self, video_id: str) -> Optional[Dict[str, Any]]:
+    async def get_video_analysis(self, video_id: str, user_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """
         Retrieve video analysis data by video_id
         
         Args:
             video_id: UUID to search for
+            user_id: Optional user ID to filter by (for security)
             
         Returns:
             Analysis data dictionary or None if not found
         """
         try:
-            result = self.client.table(self.table_name).select("*").eq("video_id", video_id).execute()
+            query = self.client.table(self.table_name).select("*").eq("video_id", video_id)
+            
+            # Add user filter if provided
+            if user_id:
+                query = query.eq("user_id", user_id)
+            
+            result = query.execute()
             
             if result.data:
                 return result.data[0]
@@ -83,6 +90,32 @@ class SupabaseManager:
         except Exception as e:
             print(f"Error retrieving video analysis: {e}")
             return None
+    
+    async def get_user_videos(self, user_id: str, limit: int = 50, offset: int = 0) -> List[Dict[str, Any]]:
+        """
+        Get all videos for a specific user
+        
+        Args:
+            user_id: User UUID to filter by
+            limit: Maximum number of records to return
+            offset: Number of records to skip
+            
+        Returns:
+            List of video analysis dictionaries
+        """
+        try:
+            result = (self.client.table(self.table_name)
+                     .select("*")
+                     .eq("user_id", user_id)
+                     .order("created_at", desc=True)
+                     .range(offset, offset + limit - 1)
+                     .execute())
+            
+            return result.data if result.data else []
+            
+        except Exception as e:
+            print(f"Error retrieving user videos: {e}")
+            return []
     
     async def update_vector_status(self, linking_uuid: str, vector_status: str, vector_id: Optional[str] = None) -> bool:
         """
