@@ -55,6 +55,8 @@ class AutomationController:
             
             # Get triggered automations from LLM analysis
             triggered_automations = analysis_result.get("triggered_automations", [])
+            print(f"🤖 LLM Analysis Result: {analysis_result}")
+            print(f"🎯 Triggered automations: {triggered_automations}")
             
             # Run automations in parallel based on analysis
             automation_tasks = []
@@ -67,6 +69,7 @@ class AutomationController:
             
             # Highlights automation
             if "highlights" in triggered_automations:
+                print(f"✨ Highlights automation triggered for video {video_id}")
                 automation_tasks.append(
                     self._run_highlights_automation(video_id, summary, analysis_result, metadata)
                 )
@@ -138,12 +141,18 @@ class AutomationController:
     ) -> Dict[str, Any]:
         """Run highlights-related automations"""
         try:
+            print(f"🎬 Running highlights automation for video {video_id}")
+            print(f"📝 Summary: {summary[:100]}...")
+            print(f"👤 Metadata user_id: {metadata.get('user_id')}")
+            
             highlights_result = await self.highlights_integration.add_to_highlights(
                 video_id=video_id,
                 summary=summary,
                 analysis=analysis,
                 metadata=metadata
             )
+            
+            print(f"✅ Highlights result: {highlights_result}")
             
             return {
                 "type": "highlights",
@@ -153,6 +162,7 @@ class AutomationController:
             
         except Exception as e:
             logger.error(f"Highlights automation failed for video {video_id}: {e}")
+            print(f"❌ Highlights automation failed: {e}")
             raise
     
     async def _store_automation_results(self, video_id: str, results: Dict[str, Any]) -> bool:

@@ -103,6 +103,7 @@ class VideoProcessingWorker:
                 
                 if job:
                     print(f"Worker {self.worker_id} processing: {job['video_path']}")
+                    print(f"Worker {self.worker_id} job metadata: {job}")
                     result = await self.process_video_segment(job)
                     
                     if result and "error" not in result:
@@ -172,7 +173,8 @@ class VideoProcessingWorker:
             analysis["linking_uuid"] = linking_uuid
             
             # Store in Supabase instead of local file
-            user_id = job.get("user_id")
+            user_id = job.get("metadata", {}).get("user_id")
+            print(f"Worker {self.worker_id} user_id from job: {user_id}")
             supabase_uuid = await self.supabase_manager.insert_video_analysis(analysis, user_id)
             
             if supabase_uuid:
