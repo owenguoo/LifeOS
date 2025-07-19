@@ -14,14 +14,11 @@ class VideoIngestionSystem:
     def __init__(self, 
                  fps=30, 
                  resolution=(1280, 720),
-                 segment_duration=10,
-                 output_dir="video_segments"):
+                 segment_duration=10):
         
         self.fps = fps
         self.resolution = resolution
         self.segment_duration = segment_duration
-        self.output_dir = Path(output_dir)
-        self.output_dir.mkdir(exist_ok=True)
         
         # Video capture setup
         self.cap = None
@@ -106,35 +103,28 @@ class VideoIngestionSystem:
                 print(f"Error in frame capture: {e}", file=sys.stderr)
                 time.sleep(0.1)
     
-    def save_video_segment(self, frames_data, segment_id):
-        """Save a list of frames as a video segment"""
+    def create_video_segment(self, frames_data, segment_id):
+        """Create a video segment in memory and return frame data"""
         if not frames_data:
             return None
             
         try:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"segment_{timestamp}_{segment_id:04d}.mp4"
-            filepath = self.output_dir / filename
+            # Return the frame data directly for processing
+            # No local file saving needed since we upload to S3
+            segment_info = {
+                "segment_id": segment_id,
+                "frames": frames_data,
+                "fps": self.fps,
+                "resolution": self.resolution,
+                "frame_count": len(frames_data),
+                "timestamp": datetime.now().isoformat()
+            }
             
-            # Define codec and create VideoWriter
-            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-            out = cv2.VideoWriter(str(filepath), fourcc, self.fps, self.resolution)
-            
-            frames_written = 0
-            for frame, _ in frames_data:
-                # Ensure frame is the correct size
-                if frame.shape[:2] != (self.resolution[1], self.resolution[0]):
-                    frame = cv2.resize(frame, self.resolution)
-                out.write(frame)
-                frames_written += 1
-            
-            out.release()
-            
-            print(f"Saved segment: {filename} ({frames_written} frames)")
-            return str(filepath)
+            print(f"Created segment {segment_id} with {len(frames_data)} frames")
+            return segment_info
             
         except Exception as e:
-            print(f"Error saving video segment: {e}", file=sys.stderr)
+            print(f"Error creating video segment: {e}", file=sys.stderr)
             return None
     
     async def process_segments(self):
@@ -159,25 +149,18 @@ class VideoIngestionSystem:
                         continue
                 
                 if frames_for_segment:
-                    # Save segment to file
+                    # Create segment data without local file storage
                     loop = asyncio.get_event_loop()
-                    video_path = await loop.run_in_executor(
+                    segment_info = await loop.run_in_executor(
                         None, 
-                        self.save_video_segment, 
+                        self.create_video_segment, 
                         frames_for_segment, 
                         segment_id
                     )
                     
-                    if video_path:
-                        # Add to Redis queue for processing
-                        metadata = {
-                            "segment_id": segment_id,
-                            "fps": self.fps,
-                            "resolution": self.resolution,
-                            "frame_count": len(frames_for_segment)
-                        }
-                        
-                        await self.queue_manager.add_video_segment(video_path, metadata)
+                    if segment_info:
+                        # Add segment info directly to Redis queue for processing
+                        await self.queue_manager.add_video_segment_data(segment_info)
                         print(f"Added segment {segment_id} to processing queue")
                     
                     segment_id += 1
@@ -193,7 +176,7 @@ class VideoIngestionSystem:
         
         print("Starting video ingestion with Redis queue...")
         print(f"Segment duration: {self.segment_duration}s")
-        print(f"Output directory: {self.output_dir}")
+        print("Direct S3 upload mode - no local storage")
         print("Press Ctrl+C to stop")
         
         self.is_recording = True

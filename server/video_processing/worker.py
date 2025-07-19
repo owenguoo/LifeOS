@@ -2,11 +2,9 @@
 Async worker for processing video segments from Redis queue
 """
 import asyncio
-import json
 import os
 import time
 from datetime import datetime
-from pathlib import Path
 from typing import Dict, Any, Optional
 from twelvelabs import TwelveLabs
 from video_queue.queue_manager import VideoQueueManager
@@ -17,11 +15,9 @@ from database.supabase_client import SupabaseManager
 class VideoProcessingWorker:
     """Async worker that processes video segments from Redis queue"""
     
-    def __init__(self, worker_id: int, api_key: str, output_dir: str = "video_processing/processed_data"):
+    def __init__(self, worker_id: int, api_key: str):
         self.worker_id = worker_id
         self.client = TwelveLabs(api_key=api_key)
-        self.output_dir = Path(output_dir)
-        self.output_dir.mkdir(exist_ok=True)
         self.queue_manager = VideoQueueManager()
         self.s3_manager = S3StorageManager()
         self.supabase_manager = SupabaseManager()
@@ -169,17 +165,9 @@ class VideoProcessingWorker:
             if supabase_uuid:
                 print(f"Worker {self.worker_id} stored analysis in Supabase: {supabase_uuid}")
                 analysis["supabase_stored"] = True
-                
-                # Optional: Still save local backup for debugging
-                analysis_filename = f"analysis_{Path(video_path).stem}_worker{self.worker_id}.json"
-                analysis_path = await self.save_analysis(analysis, analysis_filename)
-                analysis["analysis_file"] = analysis_path
             else:
-                print(f"Worker {self.worker_id} failed to store in Supabase, saving locally only")
+                print(f"Worker {self.worker_id} failed to store in Supabase")
                 analysis["supabase_stored"] = False
-                analysis_filename = f"analysis_{Path(video_path).stem}_worker{self.worker_id}.json"
-                analysis_path = await self.save_analysis(analysis, analysis_filename)
-                analysis["analysis_file"] = analysis_path
             
             return analysis
             
@@ -251,21 +239,3 @@ class VideoProcessingWorker:
                 "detailed_summary": f"Error: {str(e)}"
             }
     
-    async def save_analysis(self, analysis: Dict, filename: str = None) -> str:
-        """Save analysis results to JSON file"""
-        try:
-            if not filename:
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                filename = f"analysis_{timestamp}_worker{self.worker_id}.json"
-            
-            filepath = self.output_dir / filename
-            
-            with open(filepath, 'w') as f:
-                json.dump(analysis, f, indent=2, default=str)
-            
-            print(f"Worker {self.worker_id} analysis saved to: {filepath}")
-            return str(filepath)
-            
-        except Exception as e:
-            print(f"Worker {self.worker_id} error saving analysis: {e}")
-            return None
