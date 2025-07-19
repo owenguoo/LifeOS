@@ -49,7 +49,7 @@ Please respond with a JSON object containing:
 - "summary_classification": general category of the content
 
 Guidelines:
-- "calendar" should be triggered for: meetings, appointments, deadlines, scheduled events, reminders
+- "calendar" should be triggered for: meetings, appointments, deadlines, scheduled events, reminders BUT ONLY if a specific date or time is mentioned (e.g., "tomorrow", "next week", "Monday", "January 15th", "3 PM", etc.)
 - "highlights" should be triggered for: moments you'd want to take photos/videos of - fun experiences, memorable moments, achievements, celebrations, special occasions, interesting discoveries, beautiful scenes, social gatherings, personal milestones, funny incidents, travel moments, creative work, or anything that would make a good story or memory
 
 Think of highlights as "life moments worth capturing" - not just important business events, but also joyful, fun, interesting, or memorable personal experiences.
