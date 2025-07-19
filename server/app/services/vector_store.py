@@ -1,4 +1,4 @@
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Any, Optional, Tuple, cast
 from uuid import UUID
 from datetime import datetime
 import logging
@@ -6,7 +6,7 @@ import time
 
 from qdrant_client import QdrantClient
 from qdrant_client.http import models
-from qdrant_client.http.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, Range, MatchValue
+from qdrant_client.http.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, Range, MatchValue, Condition
 
 from app.config.connections import qdrant_connection
 from app.models.memory import MemoryPoint, MemorySearchResult
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 # Collection configuration
 COLLECTION_NAME = "lifeos_memories"
-VECTOR_SIZE = 1536  # OpenAI embedding size
+VECTOR_SIZE = 1024  # TwelveLabs Marengo-retrieval-2.7 embedding size
 DISTANCE_METRIC = Distance.COSINE
 
 
@@ -50,25 +50,13 @@ class VectorStoreService:
                 self.client.create_payload_index(
                     collection_name=self.collection_name,
                     field_name="user_id",
-                    field_schema=models.PayloadFieldSchema.KEYWORD
-                )
-                
-                self.client.create_payload_index(
-                    collection_name=self.collection_name,
-                    field_name="content_type",
-                    field_schema=models.PayloadFieldSchema.KEYWORD
+                    field_schema=models.PayloadSchemaType.KEYWORD
                 )
                 
                 self.client.create_payload_index(
                     collection_name=self.collection_name,
                     field_name="timestamp",
-                    field_schema=models.PayloadFieldSchema.DATETIME
-                )
-                
-                self.client.create_payload_index(
-                    collection_name=self.collection_name,
-                    field_name="tags",
-                    field_schema=models.PayloadFieldSchema.KEYWORD
+                    field_schema=models.PayloadSchemaType.DATETIME
                 )
                 
                 logger.info(f"Collection {self.collection_name} created successfully")
@@ -93,12 +81,8 @@ class VectorStoreService:
                 vector=memory.embedding,
                 payload={
                     "user_id": str(memory.user_id),
-                    "content": memory.content,
-                    "content_type": memory.content_type,
-                    "timestamp": memory.timestamp.isoformat(),
-                    "metadata": memory.metadata,
-                    "tags": memory.tags,
-                    "source_id": memory.source_id
+                    "video_id": str(memory.id),  # This will be the UUID to connect to postgres
+                    "timestamp": memory.timestamp.isoformat()
                 }
             )
             
@@ -120,8 +104,6 @@ class VectorStoreService:
         user_id: UUID,
         query_vector: List[float],
         limit: int = 10,
-        content_types: Optional[List[str]] = None,
-        tags: Optional[List[str]] = None,
         date_from: Optional[datetime] = None,
         date_to: Optional[datetime] = None,
         score_threshold: float = 0.5
@@ -132,16 +114,6 @@ class VectorStoreService:
             
             # Build filter conditions
             filter_conditions = [FieldCondition(key="user_id", match=MatchValue(value=str(user_id)))]
-            
-            if content_types:
-                filter_conditions.append(
-                    FieldCondition(key="content_type", match=models.MatchAny(any=content_types))
-                )
-            
-            if tags:
-                filter_conditions.append(
-                    FieldCondition(key="tags", match=models.MatchAny(any=tags))
-                )
             
             if date_from or date_to:
                 range_filter = {}
@@ -154,7 +126,7 @@ class VectorStoreService:
                     FieldCondition(key="timestamp", range=Range(**range_filter))
                 )
             
-            search_filter = Filter(must=filter_conditions) if filter_conditions else None
+            search_filter = Filter(must=cast(List[Condition], filter_conditions)) if filter_conditions else None
             
             # Perform vector search
             search_result = self.client.search(
@@ -172,14 +144,10 @@ class VectorStoreService:
                 try:
                     payload = point.payload
                     memory_result = MemorySearchResult(
-                        id=UUID(point.id),
-                        content=payload.get("content", ""),
-                        content_type=payload.get("content_type", ""),
+                        id=UUID(str(point.id)),
+                        video_id=str(payload.get("video_id", "")),
                         timestamp=datetime.fromisoformat(payload.get("timestamp", "")),
-                        metadata=payload.get("metadata", {}),
-                        tags=payload.get("tags", []),
-                        score=point.score,
-                        source_id=payload.get("source_id")
+                        score=point.score
                     )
                     results.append(memory_result)
                 except Exception as e:
@@ -212,14 +180,14 @@ class VectorStoreService:
             payload = point.payload
             
             memory = MemoryPoint(
-                id=UUID(point.id),
-                user_id=UUID(payload.get("user_id")),
-                content=payload.get("content", ""),
-                content_type=payload.get("content_type", ""),
+                id=UUID(str(point.id)),
+                user_id=UUID(payload.get("user_id"),),
+                content="",  # Not stored in vector payload
+                content_type="video",  # Default since we only store videos
                 timestamp=datetime.fromisoformat(payload.get("timestamp", "")),
-                metadata=payload.get("metadata", {}),
-                tags=payload.get("tags", []),
-                source_id=payload.get("source_id"),
+                metadata={},  # Not stored in vector payload
+                tags=[],  # Not stored in vector payload
+                source_id=None,  # Not stored in vector payload
                 embedding=point.vector
             )
             

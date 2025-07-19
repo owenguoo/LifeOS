@@ -4,7 +4,7 @@ This document describes the Qdrant vector database integration implemented in th
 
 ## Overview
 
-The Qdrant integration provides semantic search capabilities for storing and retrieving memories/past summaries from videos (embedding the text, NOT the video) using vector embeddings. It enables users to search through their personal memories using natural language queries.
+The Qdrant integration provides semantic search capabilities for storing and retrieving memories from videos using vector embeddings. It enables users to search through their personal memories using natural language queries.
 
 ## Architecture
 
@@ -17,8 +17,12 @@ The Qdrant integration provides semantic search capabilities for storing and ret
    - Manages collection initialization and indexing
 
 2. **EmbeddingService** (`app/services/embedding_service.py`)
-   - Generates text embeddings using OpenAI API
-   - Handles API rate limiting and error handling
+   - Generates video embeddings using TwelveLabs API
+   - Handles video processing and embedding generation
+   
+3. **TextEmbeddingService** (`app/services/text_embedding_service.py`)
+   - Generates text embeddings using TwelveLabs API
+   - Handles search query embedding generation
 
 3. **Memory Models** (`app/models/memory.py`)
    - `MemoryPoint`: Core data model for vector storage

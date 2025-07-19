@@ -18,6 +18,7 @@ from app.schemas.memory import (
 from app.models.memory import MemoryPoint
 from app.services.vector_store import vector_store
 from app.services.embedding_service import embedding_service
+from app.services.text_embedding_service import text_embedding_service
 
 logger = logging.getLogger(__name__)
 
@@ -32,23 +33,41 @@ DEMO_USER_ID = UUID("8c0ba789-5f7f-4fce-a651-ce08fb6c0024")
 async def create_memory(request: MemoryCreateRequest):
     """Create a new memory with vector embedding"""
     try:
-        # Generate embedding for the content
-        embedding = await embedding_service.get_embedding(request.content)
+        # Process video file/URL to get embedding
+        if request.content.startswith(("http://", "https://")):
+            # Process video URL
+            embedding_result = await embedding_service.process_video_embedding_pipeline(
+                video_url=request.content
+            )
+        else:
+            # Assume content is a file path
+            embedding_result = await embedding_service.process_video_embedding_pipeline(
+                file_path=request.content
+            )
+        
+        if not embedding_result:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to generate video embedding"
+            )
+        
+        # Extract the video embedding from the result
+        embedding = embedding_result.get("video_embedding")
         if not embedding:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to generate embedding"
+                detail="No video embedding found in result"
             )
         
         # Create memory point
         memory = MemoryPoint(
             user_id=DEMO_USER_ID,  # In real app, get from auth context
-            content=request.content,
-            content_type=request.content_type,
+            content=request.content,  # This will be the video file path or URL
+            content_type="video",  # Always video since we only store videos
             timestamp=datetime.utcnow(),
-            metadata=request.metadata,
-            tags=request.tags,
-            source_id=request.source_id,
+            metadata={},  # Not stored in vector payload
+            tags=[],  # Not stored in vector payload
+            source_id=None,  # Not stored in vector payload
             embedding=embedding
         )
         
@@ -87,8 +106,8 @@ async def search_memories(request: MemorySearchRequest):
     try:
         start_time = time.time()
         
-        # Generate embedding for search query
-        query_embedding = await embedding_service.get_embedding(request.query)
+        # Generate embedding for search query using text embedding service
+        query_embedding = await text_embedding_service.get_embedding(request.query)
         if not query_embedding:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -100,8 +119,6 @@ async def search_memories(request: MemorySearchRequest):
             user_id=DEMO_USER_ID,  # In real app, get from auth context
             query_vector=query_embedding,
             limit=request.limit,
-            content_types=request.content_types,
-            tags=request.tags,
             date_from=request.date_from,
             date_to=request.date_to,
             score_threshold=request.score_threshold or 0.5
@@ -112,13 +129,9 @@ async def search_memories(request: MemorySearchRequest):
         for result in results:
             response_results.append({
                 "id": str(result.id),
-                "content": result.content,
-                "content_type": result.content_type,
+                "video_id": result.video_id,
                 "timestamp": result.timestamp.isoformat(),
-                "metadata": result.metadata,
-                "tags": result.tags,
-                "score": result.score,
-                "source_id": result.source_id
+                "score": result.score
             })
         
         search_time = (time.time() - start_time) * 1000
@@ -145,19 +158,22 @@ async def health_check():
     """Health check for vector store and embedding service"""
     try:
         vector_health = await vector_store.health_check()
-        embedding_health = embedding_service.health_check()
+        video_embedding_health = embedding_service.health_check()
+        text_embedding_health = text_embedding_service.health_check()
         
         return {
             "vector_store": "healthy" if vector_health else "unhealthy",
-            "embedding_service": "healthy" if embedding_health else "unhealthy",
-            "overall": "healthy" if vector_health and embedding_health else "unhealthy"
+            "video_embedding_service": "healthy" if video_embedding_health else "unhealthy",
+            "text_embedding_service": "healthy" if text_embedding_health else "unhealthy",
+            "overall": "healthy" if vector_health and video_embedding_health and text_embedding_health else "unhealthy"
         }
         
     except Exception as e:
         logger.error(f"Health check failed: {e}")
         return {
             "vector_store": "unhealthy",
-            "embedding_service": "unhealthy",
+            "video_embedding_service": "unhealthy",
+            "text_embedding_service": "unhealthy",
             "overall": "unhealthy"
         }
 

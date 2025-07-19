@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     
     # APIs
     twelvelabs_api_key: Optional[str] = os.getenv("TWELVELABS_API_KEY") 
-    openai_api_key: Optional[str] = None
+    openai_api_key: Optional[str] = os.getenv("OPENAI_API_KEY")
     
     # Vector Database (Qdrant)
     qdrant_url: str = "http://localhost:6333"
