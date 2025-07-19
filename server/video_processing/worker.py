@@ -306,7 +306,7 @@ class VideoProcessingWorker:
             # Create memory point for vector storage
             memory = MemoryPoint(
                 id=UUID(linking_uuid),  # Use the same UUID as Supabase
-                user_id=UUID("8c0ba789-5f7f-4fce-a651-ce08fb6c0024"),  # Demo user ID
+                user_id=UUID("01465a04-d0ec-4325-b189-f682e220ad40"),  # Demo user ID
                 content=video_path,
                 content_type="video",
                 timestamp=datetime.fromtimestamp(timestamp),

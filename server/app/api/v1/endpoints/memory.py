@@ -13,12 +13,15 @@ from app.schemas.memory import (
     MemorySearchResponse,
     MemoryResponse,
     MemoryDeleteRequest,
-    MemoryDeleteResponse
+    MemoryDeleteResponse,
+    ChatbotQueryRequest,
+    ChatbotQueryResponse
 )
 from app.models.memory import MemoryPoint
 from app.services.vector_store import vector_store
 from app.services.embedding_service import embedding_service
 from app.services.text_embedding_service import text_embedding_service
+from app.services.openai_service import openai_service
 from database.supabase_client import SupabaseManager
 
 logger = logging.getLogger(__name__)
@@ -29,7 +32,7 @@ router = APIRouter()
 supabase_manager = SupabaseManager()
 
 # Temporary user ID for demo purposes (in real app, this would come from auth)
-DEMO_USER_ID = UUID("8c0ba789-5f7f-4fce-a651-ce08fb6c0024")
+DEMO_USER_ID = UUID("01465a04-d0ec-4325-b189-f682e220ad40")
 
 
 @router.post("/create", response_model=MemoryResponse)
@@ -181,6 +184,85 @@ async def search_memories(request: MemorySearchRequest):
         )
 
 
+@router.post("/chatbot", response_model=ChatbotQueryResponse)
+async def chatbot_query(request: ChatbotQueryRequest):
+    """Chatbot endpoint that refines user input and finds the best matching video"""
+    try:
+        start_time = time.time()
+        
+        # Step 1: Refine the user input using OpenAI
+        refined_query = openai_service.refine_query(request.user_input)
+        if not refined_query:
+            # Fallback to original input if OpenAI fails
+            refined_query = request.user_input
+        
+        # Step 2: Generate embedding for the refined query
+        query_embedding = await text_embedding_service.get_embedding(refined_query)
+        if not query_embedding:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to generate query embedding"
+            )
+        
+        # Step 3: Search for the highest confidence match
+        results = await vector_store.search_memories(
+            user_id=DEMO_USER_ID,  # In real app, get from auth context
+            query_vector=query_embedding,
+            limit=1,  # Only get the best match
+            score_threshold=request.confidence_threshold or 0.7
+        )
+        
+        processing_time = (time.time() - start_time) * 1000
+        
+        # Step 4: Process results
+        if results and len(results) > 0:
+            best_match = results[0]
+            
+            # Step 5: Fetch video data from Supabase using video_id
+            video_data = await supabase_manager.get_video_analysis(best_match.video_id)
+            
+            if video_data:
+                return ChatbotQueryResponse(
+                    original_input=request.user_input,
+                    refined_query=refined_query,
+                    video_found=True,
+                    video_id=best_match.video_id,
+                    timestamp=best_match.timestamp.isoformat(),
+                    summary=video_data.get("detailed_summary"),
+                    confidence_score=best_match.score,
+                    processing_time_ms=processing_time
+                )
+            else:
+                # Video found in vector store but not in Supabase
+                return ChatbotQueryResponse(
+                    original_input=request.user_input,
+                    refined_query=refined_query,
+                    video_found=True,
+                    video_id=best_match.video_id,
+                    timestamp=best_match.timestamp.isoformat(),
+                    summary="Video found but detailed summary not available",
+                    confidence_score=best_match.score,
+                    processing_time_ms=processing_time
+                )
+        else:
+            # No matching video found
+            return ChatbotQueryResponse(
+                original_input=request.user_input,
+                refined_query=refined_query,
+                video_found=False,
+                processing_time_ms=processing_time
+            )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in chatbot query: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error"
+        )
+
+
 @router.get("/health")
 async def health_check():
     """Health check for vector store and embedding service"""
@@ -188,12 +270,14 @@ async def health_check():
         vector_health = await vector_store.health_check()
         video_embedding_health = embedding_service.health_check()
         text_embedding_health = text_embedding_service.health_check()
+        openai_health = openai_service.health_check()
         
         return {
             "vector_store": "healthy" if vector_health else "unhealthy",
             "video_embedding_service": "healthy" if video_embedding_health else "unhealthy",
             "text_embedding_service": "healthy" if text_embedding_health else "unhealthy",
-            "overall": "healthy" if vector_health and video_embedding_health and text_embedding_health else "unhealthy"
+            "openai_service": "healthy" if openai_health else "unhealthy",
+            "overall": "healthy" if vector_health and video_embedding_health and text_embedding_health and openai_health else "unhealthy"
         }
         
     except Exception as e:
@@ -202,6 +286,7 @@ async def health_check():
             "vector_store": "unhealthy",
             "video_embedding_service": "unhealthy",
             "text_embedding_service": "unhealthy",
+            "openai_service": "unhealthy",
             "overall": "unhealthy"
         }
 
