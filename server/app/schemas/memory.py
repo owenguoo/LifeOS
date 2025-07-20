@@ -48,6 +48,7 @@ class ChatbotQueryResponse(BaseModel):
     original_input: str
     refined_query: str
     video_found: bool
+    ai_response: Optional[str] = None
     video_id: Optional[str] = None
     timestamp: Optional[str] = None
     summary: Optional[str] = None
