@@ -214,43 +214,51 @@ async def chatbot_query(request: ChatbotQueryRequest):
 
         processing_time = (time.time() - start_time) * 1000
 
-        # Step 4: Filter results to within 24 hours of the top match
+        # Step 4: Collect context from all relevant videos 
         if results and len(results) > 0:
-            top_match = results[0]
-            top_timestamp = top_match.timestamp
-
-            # Filter to videos within 24 hours of the top match
-            from datetime import timedelta
-
-            filtered_results = []
+            # Collect video contexts from all results
+            video_contexts = []
+            best_match = results[0]  # Keep track of the best match for backwards compatibility
+            
             for result in results:
-                time_diff = abs((result.timestamp - top_timestamp).total_seconds())
-                if time_diff <= 24 * 3600:  # 24 hours in seconds
-                    filtered_results.append(result)
-
-            # Use the best match from filtered results
-            best_match = filtered_results[0] if filtered_results else top_match
-
-            # Step 5: Fetch video data from Supabase using video_id
-            video_data = await supabase_manager.get_video_analysis(best_match.video_id)
-
-            if video_data:
+                # Fetch video data from Supabase using video_id
+                video_data = await supabase_manager.get_video_analysis(result.video_id)
+                
+                if video_data:
+                    context = {
+                        "timestamp": result.timestamp.isoformat(),
+                        "summary": video_data.get("detailed_summary", "No summary available"),
+                        "confidence_score": result.score,
+                        "video_id": result.video_id
+                    }
+                    video_contexts.append(context)
+            
+            # Step 5: Generate AI response using all video contexts
+            ai_response = openai_service.generate_contextual_response(
+                user_question=request.user_input,
+                video_contexts=video_contexts
+            )
+            
+            # If we have contexts, return comprehensive response
+            if video_contexts:
                 return ChatbotQueryResponse(
                     original_input=request.user_input,
                     refined_query=refined_query,
                     video_found=True,
-                    video_id=best_match.video_id,
+                    ai_response=ai_response,
+                    video_id=best_match.video_id,  # Still include best match for backwards compatibility
                     timestamp=best_match.timestamp.isoformat(),
-                    summary=video_data.get("detailed_summary"),
+                    summary=video_contexts[0].get("summary") if video_contexts else None,
                     confidence_score=best_match.score,
                     processing_time_ms=processing_time,
                 )
             else:
-                # Video found in vector store but not in Supabase
+                # Vector results found but no Supabase data
                 return ChatbotQueryResponse(
                     original_input=request.user_input,
                     refined_query=refined_query,
                     video_found=True,
+                    ai_response="I found some relevant videos but couldn't access their detailed summaries.",
                     video_id=best_match.video_id,
                     timestamp=best_match.timestamp.isoformat(),
                     summary="Video found but detailed summary not available",
@@ -263,6 +271,7 @@ async def chatbot_query(request: ChatbotQueryRequest):
                 original_input=request.user_input,
                 refined_query=refined_query,
                 video_found=False,
+                ai_response="I couldn't find any relevant videos to answer your question.",
                 processing_time_ms=processing_time,
             )
 
