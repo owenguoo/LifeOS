@@ -16,7 +16,7 @@ from config import Config
 class VideoLifecycleManager:
     """Manages the complete video ingestion and processing lifecycle with Redis queues"""
     
-    def __init__(self, api_key: str, user_id: str = ""):
+    def __init__(self, api_key: str, user_id: str = None):
         self.api_key = api_key
         self.user_id = user_id
         self.ingestion_system = VideoIngestionSystem(
@@ -179,8 +179,9 @@ async def main():
     if api_key is None:
         api_key = ""  # Provide empty string as fallback
     
-    # Create lifecycle manager
-    manager = VideoLifecycleManager(api_key)
+    # Create lifecycle manager with hardcoded user_id for testing
+    user_id = "fab1e4f5-6e95-4729-9c0c-cd642e48a7be"
+    manager = VideoLifecycleManager(api_key, user_id)
     
     try:
         if mode == "ingestion":

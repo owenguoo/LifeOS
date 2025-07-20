@@ -39,17 +39,45 @@ class HighlightsIntegration:
         """
         try:
             logger.info(f"Processing highlights for video {video_id}")
+            print(f"🎯 Highlights integration received metadata: {metadata}")
             
-            # Placeholder for actual highlights integration
-            # This would add to highlights table in database
+            # Get user_id from metadata
+            user_id = metadata.get("user_id")
+            print(f"👤 Extracted user_id: {user_id}")
+            if not user_id:
+                logger.error("No user_id found in metadata")
+                print(f"❌ No user_id found in metadata: {metadata}")
+                return {
+                    "highlights_automation_triggered": False,
+                    "reason": "No user_id provided",
+                    "processing_timestamp": datetime.now().isoformat()
+                }
             
-            results = {
-                "highlights_automation_triggered": True,
-                "processing_timestamp": datetime.now().isoformat(),
-                "message": "Highlights automation would run here"
+            # Create highlight record
+            highlight_data = {
+                "video_id": video_id,
+                "user_id": user_id,
+                "created_at": datetime.now().isoformat()
             }
             
-            return results
+            # Insert into highlights table
+            result = self.supabase_manager.client.table("highlights").insert(highlight_data).execute()
+            
+            if result.data:
+                logger.info(f"Successfully added video {video_id} to highlights for user {user_id}")
+                return {
+                    "highlights_automation_triggered": True,
+                    "processing_timestamp": datetime.now().isoformat(),
+                    "highlight_id": result.data[0]["highlight_id"],
+                    "message": f"Video {video_id} added to highlights"
+                }
+            else:
+                logger.error(f"Failed to insert highlight into database")
+                return {
+                    "highlights_automation_triggered": False,
+                    "reason": "Database insertion failed",
+                    "processing_timestamp": datetime.now().isoformat()
+                }
             
         except Exception as e:
             logger.error(f"Error adding to highlights: {e}")
@@ -150,19 +178,8 @@ class HighlightsIntegration:
             True if successful, False otherwise
         """
         try:
-            # For now, we'll simulate storing in the database
-            # In a real implementation, this would:
-            # 1. Insert into a highlights table in Supabase
-            # 2. Handle any database constraints
-            # 3. Return the inserted record
-            
-            logger.info(f"Would store highlight: {highlight_data['title']}")
-            
-            # Simulate database insert
-            # result = self.supabase_manager.client.table("highlights").insert(highlight_data).execute()
-            # return bool(result.data)
-            
-            return True
+            result = self.supabase_manager.client.table("highlights").insert(highlight_data).execute()
+            return bool(result.data)
             
         except Exception as e:
             logger.error(f"Error storing highlight: {e}")
