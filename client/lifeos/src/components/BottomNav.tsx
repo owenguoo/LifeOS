@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import Link from 'next/link';
 
 export default function BottomNav() {
   return (
@@ -11,12 +12,13 @@ export default function BottomNav() {
       <div className="container mx-auto px-4 py-3">
         <div className="flex items-center justify-around">
           {/* Chat Tab */}
-          <motion.button 
-            className="flex flex-col items-center p-2 rounded-lg transition-colors group relative"
-            whileHover={{ scale: 1.1, y: -2 }}
-            whileTap={{ scale: 0.95 }}
-            transition={{ type: "spring", stiffness: 400, damping: 17 }}
-          >
+          <Link href="/chat">
+            <motion.button 
+              className="flex flex-col items-center p-2 rounded-lg transition-colors group relative"
+              whileHover={{ scale: 1.1, y: -2 }}
+              whileTap={{ scale: 0.95 }}
+              transition={{ type: "spring", stiffness: 400, damping: 17 }}
+            >
             <motion.svg
               className="w-6 h-6 text-text-secondary"
               fill="none"
@@ -40,7 +42,8 @@ export default function BottomNav() {
             >
               Chat
             </motion.span>
-          </motion.button>
+            </motion.button>
+          </Link>
 
           {/* Activity Tab */}
           <motion.button 
