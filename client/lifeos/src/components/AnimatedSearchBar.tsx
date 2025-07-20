@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 
 interface AnimatedSearchBarProps {
   placeholder?: string;
@@ -9,10 +10,18 @@ export default function AnimatedSearchBar({
   placeholder = "Search memories...", 
   className = "" 
 }: AnimatedSearchBarProps) {
+  const [isFocused, setIsFocused] = useState(false);
+
   return (
     <div className={`relative flex items-center justify-center ${className}`}>
       <div className="absolute z-[-1] w-full h-min-screen"></div>
-      <div id="poda" className="relative flex items-center justify-center group">
+      <motion.div 
+        id="poda" 
+        className="relative flex items-center justify-center group"
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+        transition={{ type: "spring", stiffness: 400, damping: 17 }}
+      >
         <div className="absolute z-[-1] overflow-hidden h-full w-full max-h-[70px] max-w-[314px] rounded-xl blur-[3px] 
                         before:absolute before:content-[''] before:z-[-2] before:w-[999px] before:h-[999px] before:bg-no-repeat before:top-1/2 before:left-1/2 before:-translate-x-1/2 before:-translate-y-1/2 before:rotate-60
                         before:bg-[conic-gradient(#0d0d0d,#7a2246_5%,#0d0d0d_38%,#0d0d0d_50%,#f2858e_60%,#0d0d0d_87%)] before:transition-all before:duration-2000
@@ -47,14 +56,29 @@ export default function AnimatedSearchBar({
         </div>
 
         <div id="main" className="relative group">
-          <input 
+          <motion.input 
             placeholder={placeholder} 
             type="text" 
             name="text" 
             className="bg-[#0d0d0d] border-none w-[301px] h-[56px] rounded-lg text-white px-[59px] text-lg focus:outline-none placeholder-white/60" 
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+            whileFocus={{ scale: 1.01 }}
+            transition={{ type: "spring", stiffness: 300, damping: 20 }}
           />
 
-          <div id="search-icon" className="absolute left-5 top-[15px]">
+          <motion.div 
+            id="search-icon" 
+            className="absolute left-5 top-[15px]"
+            animate={{ 
+              rotate: isFocused ? 360 : 0,
+              scale: isFocused ? 1.1 : 1
+            }}
+            transition={{ 
+              rotate: { duration: 0.6, ease: "easeInOut" },
+              scale: { duration: 0.2, ease: "easeInOut" }
+            }}
+          >
             <svg xmlns="http://www.w3.org/2000/svg" width="24" viewBox="0 0 24 24" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" height="24" fill="none" className="feather feather-search">
               <circle stroke="url(#search)" r="8" cy="11" cx="11"></circle>
               <line stroke="url(#searchl)" y2="16.65" y1="22" x2="16.65" x1="22"></line>
@@ -69,9 +93,9 @@ export default function AnimatedSearchBar({
                 </linearGradient>
               </defs>
             </svg>
-          </div>
+          </motion.div>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 } 

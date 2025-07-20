@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Onest } from "next/font/google";
 import "./globals.css";
+import { AuthProvider } from "@/contexts/AuthContext";
 
 const onest = Onest({
   variable: "--font-onest",
@@ -30,17 +31,16 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${onest.variable} ${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        {/* Blurred background effect */}
-        <div className="bg-blur-effect" />
-        
-        {/* Main app container */}
-        <div className="relative z-10 min-h-screen flex flex-col">
-          {children}
-        </div>
-      </body>
+      <AuthProvider>
+        <body
+          className={`${onest.variable} ${geistSans.variable} ${geistMono.variable} antialiased`}
+        >
+          <div className="bg-blur-effect" />
+          <div className="relative z-10 min-h-screen flex flex-col">
+            {children}
+          </div>
+        </body>
+      </AuthProvider>
     </html>
   );
 }
