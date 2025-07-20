@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1.endpoints import memory, simple_auth, videos, insights
+from app.api.v1.endpoints import memory, simple_auth, videos, insights, highlights
 
 # Create the main API router
 api_router = APIRouter()
@@ -30,4 +30,11 @@ api_router.include_router(
     insights.router,
     prefix="/insights",
     tags=["insights"]
+)
+
+# Include highlights endpoints
+api_router.include_router(
+    highlights.router,
+    prefix="/highlights",
+    tags=["highlights"]
 ) 
