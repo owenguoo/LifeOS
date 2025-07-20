@@ -59,28 +59,13 @@ export default function BottomNav() {
             transition={{ type: "spring", stiffness: 400, damping: 17 }}
             onClick={() => router.push('/highlights')}
           >
-            <motion.svg
+            <motion.img
+              src="/highlights.svg"
               className={`w-6 h-6 ${isActive('/highlights') ? 'text-text-primary' : 'text-text-secondary'}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
               whileHover={{ rotate: 5 }}
               transition={{ type: "spring", stiffness: 300 }}
-            >
-              {/* Clapperboard icon */}
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M7 4V2a1 1 0 011-1h8a1 1 0 011 1v2m-9 0h10m-10 0a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2"
-              />
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 8h6m-6 4h6m-6 4h6"
-              />
-            </motion.svg>
+              alt="Highlights"
+            />
             <motion.span 
               className={`text-xs ${isActive('/highlights') ? 'text-text-primary' : 'text-text-secondary'} opacity-0 group-hover:opacity-100 absolute top-full mt-1 whitespace-nowrap`}
               initial={{ opacity: 0, y: 5 }}
@@ -103,14 +88,8 @@ export default function BottomNav() {
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
-              animate={{ 
-                scale: [1, 1.1, 1],
-                rotate: [0, 5, -5, 0]
-              }}
-              transition={{ 
-                scale: { duration: 2, repeat: Infinity, ease: "easeInOut" },
-                rotate: { duration: 3, repeat: Infinity, ease: "easeInOut" }
-              }}
+              whileHover={{ rotate: 5 }}
+              transition={{ type: "spring", stiffness: 300 }}
             >
               <path
                 strokeLinecap="round"
