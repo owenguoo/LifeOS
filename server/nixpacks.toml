@@ -4,3 +4,7 @@ nixPkgs = [
   "portaudio",
   "alsa-lib"
 ]
+
+[phases.build]
+# ensure build inputs are visible
+buildInputs = "${portaudio} ${alsa-lib}"
