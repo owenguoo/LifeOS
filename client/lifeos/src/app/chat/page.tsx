@@ -71,7 +71,7 @@ export default function ChatPage() {
         },
         body: JSON.stringify({
           user_input: userMessage.content,
-          confidence_threshold: 0.7,
+          confidence_threshold: 0.01,
         }),
       });
 

@@ -210,7 +210,7 @@ async def chatbot_query(request: ChatbotQueryRequest, current_user: User = Depen
             user_id=UUID(current_user.id),
             query_vector=query_embedding,
             limit=10,  # Get top 10 matches
-            score_threshold=request.confidence_threshold or 0.7,
+            score_threshold=request.confidence_threshold or 0.01,
         )
 
         processing_time = (time.time() - start_time) * 1000

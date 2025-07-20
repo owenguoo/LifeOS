@@ -39,7 +39,7 @@ class ChatbotQueryRequest(BaseModel):
     """Request schema for chatbot query"""
     
     user_input: str = Field(..., min_length=1, description="User's question or input")
-    confidence_threshold: Optional[float] = Field(default=0.7, ge=0.0, le=1.0, description="Minimum confidence score for video match")
+    confidence_threshold: Optional[float] = Field(default=0.01, ge=0.0, le=1.0, description="Minimum confidence score for video match")
 
 
 class ChatbotQueryResponse(BaseModel):
