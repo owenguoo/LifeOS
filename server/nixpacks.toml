@@ -1,10 +1,19 @@
+# nixpacks.toml  – put in repo root
 [phases.setup]
+# 1. pull the runtime + headers + helper tools into the sandbox
 nixPkgs = [
-  "...",
-  "portaudio",
-  "alsa-lib"
+  "...",          # keep defaults
+  "portaudio",    # runtime library (.so)
+  "portaudio.dev",# headers + .pc file
+  "alsa-lib",     # ALSA backend expected by PortAudio
+  "pkg-config"    # lets pip detect the include/lib dirs
 ]
 
-[phases.build]
-# ensure build inputs are visible
-buildInputs = "${portaudio} ${alsa-lib}"
+# 2. expose those libs so the linker finds them at run‑ & build‑time
+nixLibs = ["portaudio"]
+
+# 3. C/C++ include path – pkg‑config will fill it, but a fallback helps
+env = { 
+  "CPATH"   = "${pkgs.portaudio.dev}/include",
+  "PKG_CONFIG_PATH" = "${pkgs.portaudio.dev}/lib/pkgconfig"
+}
