@@ -45,7 +45,7 @@ export default function AnimatedSearchBar({
       const response = await axiosInstance.post('/api/v1/memory/search', {
         query: searchQuery.trim(),
         limit: 3,
-        score_threshold: 0.5
+        score_threshold: 0.01
       });
 
       setSearchResults(response.data.results);

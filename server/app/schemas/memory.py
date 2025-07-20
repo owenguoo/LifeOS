@@ -23,7 +23,7 @@ class MemorySearchRequest(BaseModel):
     tags: Optional[List[str]] = Field(default=None, description="Filter by tags")
     date_from: Optional[datetime] = Field(default=None, description="Filter from date")
     date_to: Optional[datetime] = Field(default=None, description="Filter to date")
-    score_threshold: Optional[float] = Field(default=0.5, ge=0.0, le=1.0, description="Minimum similarity score")
+    score_threshold: Optional[float] = Field(default=0.01, ge=0.0, le=1.0, description="Minimum similarity score")
 
 
 class MemorySearchResponse(BaseModel):

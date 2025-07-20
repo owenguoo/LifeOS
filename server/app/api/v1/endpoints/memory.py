@@ -129,7 +129,7 @@ async def search_memories(request: MemorySearchRequest, current_user: User = Dep
             limit=request.limit,
             date_from=request.date_from,
             date_to=request.date_to,
-            score_threshold=request.score_threshold or 0.5,
+            score_threshold=request.score_threshold or 0.01,
         )
 
         # Convert to response format and fetch Supabase data

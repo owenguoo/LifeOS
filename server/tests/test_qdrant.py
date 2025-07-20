@@ -99,7 +99,7 @@ async def test_search_memories():
                 json={
                     "query": query,
                     "limit": 5,
-                    "score_threshold": 0.3
+                    "score_threshold": 0.01
                 }
             )
             

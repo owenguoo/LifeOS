@@ -106,7 +106,7 @@ class VectorStoreService:
         limit: int = 10,
         date_from: Optional[datetime] = None,
         date_to: Optional[datetime] = None,
-        score_threshold: float = 0.5
+        score_threshold: float = 0.01
     ) -> List[MemorySearchResult]:
         """Search memories using vector similarity"""
         try:
