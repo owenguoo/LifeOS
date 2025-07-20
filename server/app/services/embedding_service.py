@@ -1,6 +1,7 @@
 from typing import List, Optional, Dict, Any, Callable
 import logging
 import asyncio
+import time
 from twelvelabs import TwelveLabs
 from app.config.settings import settings
 
@@ -81,26 +82,38 @@ class EmbeddingService:
     async def wait_for_embedding_completion(
         self, 
         task, 
-        sleep_interval: int = 5,
+        sleep_interval: int = 3,
+        max_wait_time: int = 300,
         callback: Optional[Callable] = None
     ) -> Optional[str]:
-        """Wait for a video embedding task to complete"""
+        """Wait for a video embedding task to complete with async polling"""
         try:
-            print(f"   ⏰ Waiting for task completion (checking every {sleep_interval}ms)...")
+            print(f"   ⏰ Waiting for task completion (checking every {sleep_interval}s, max {max_wait_time}s)...")
             
-            # Define callback function to monitor status
-            def on_task_update(task_obj):
-                print(f"   🔍 Status={task_obj.status}")
+            start_time = time.time()
             
-            # Wait for completion using the task object directly
-            final_status = task.wait_for_done(
-                sleep_interval=sleep_interval,
-                callback=on_task_update
-            )
+            while time.time() - start_time < max_wait_time:
+                # Check task status asynchronously
+                status_result = self.client.embed.task.status(task.id)
+                
+                if status_result:
+                    print(f"   🔍 Status={status_result.status}")
+                    
+                    if status_result.status == "ready":
+                        print(f"   ✅ Task completed successfully")
+                        logger.info(f"Task {task.id} completed successfully")
+                        return "ready"
+                    elif status_result.status in ["failed", "error"]:
+                        print(f"   ❌ Task failed with status: {status_result.status}")
+                        logger.error(f"Task {task.id} failed with status: {status_result.status}")
+                        return status_result.status
+                
+                # Non-blocking async sleep
+                await asyncio.sleep(sleep_interval)
             
-            print(f"   ✅ Task completed with status: {final_status}")
-            logger.info(f"Task completed with status: {final_status}")
-            return final_status
+            print(f"   ⏰ Task timed out after {max_wait_time}s")
+            logger.warning(f"Task {task.id} timed out after {max_wait_time}s")
+            return "timeout"
             
         except Exception as e:
             logger.error(f"Failed to wait for embedding completion: {e}")

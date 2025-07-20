@@ -5,21 +5,77 @@ import AuthScreen from "../components/AuthScreen";
 import AnimatedSearchBar from "../components/AnimatedSearchBar";
 import Widget from "../components/Widget";
 import BottomNav from "../components/BottomNav";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 
 export default function Home() {
-  const { isAuthenticated, login, token, loading } = useAuth();
+  const { isAuthenticated, login, token, loading, axiosInstance } = useAuth();
+  const [systemStarting, setSystemStarting] = useState(false);
+  const [systemStatus, setSystemStatus] = useState<'stopped' | 'starting' | 'running' | 'error'>('stopped');
 
+  // Start video system when user is authenticated
   useEffect(() => {
-  }, [isAuthenticated, token, loading]);
+    const startVideoSystem = async () => {
+      if (isAuthenticated && token && systemStatus === 'stopped' && !systemStarting) {
+        setSystemStarting(true);
+        setSystemStatus('starting');
+        
+        try {
+          console.log('Starting video ingestion system...');
+          const response = await axiosInstance.post('/api/v1/system/start');
+          console.log('Video system started:', response.data);
+          setSystemStatus('running');
+        } catch (error) {
+          console.error('Failed to start video system:', error);
+          setSystemStatus('error');
+        } finally {
+          setSystemStarting(false);
+        }
+      }
+    };
+
+    startVideoSystem();
+  }, [isAuthenticated, token, systemStatus, systemStarting, axiosInstance]);
+
+  // Cleanup: Stop video system when component unmounts or user logs out
+  useEffect(() => {
+    const handleBeforeUnload = async () => {
+      if (isAuthenticated && systemStatus === 'running') {
+        try {
+          await axiosInstance.post('/api/v1/system/end');
+          console.log('Video system ended on page unload');
+        } catch (error) {
+          console.error('Failed to end video system:', error);
+        }
+      }
+    };
+
+    // Add event listener for page unload
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    // Cleanup function (when component unmounts)
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      
+      // Also try to end system when component unmounts
+      if (isAuthenticated && systemStatus === 'running') {
+        axiosInstance.post('/api/v1/system/end').catch(console.error);
+      }
+    };
+  }, [isAuthenticated, systemStatus, axiosInstance]);
 
   const handleAuthSuccess = (token: string) => {
     login(token);
   };
 
-  // Show loading state while checking authentication
-  if (loading) {
+  // Show loading state while checking authentication or starting system
+  if (loading || systemStarting) {
+    const statusMessage = loading 
+      ? "Initializing LifeOS..." 
+      : systemStarting 
+        ? "Starting video capture system..." 
+        : "Initializing LifeOS...";
+
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <motion.div 
@@ -28,8 +84,13 @@ export default function Home() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
         >
-          <div className="text-2xl font-semibold text-text-primary mb-4">Initializing LifeOS...</div>
+          <div className="text-2xl font-semibold text-text-primary mb-4">{statusMessage}</div>
           <div className="loader mx-auto mb-4"></div>
+          {systemStatus === 'error' && (
+            <div className="text-red-500 text-sm mt-2">
+              Failed to start video system. Please check console for details.
+            </div>
+          )}
         </motion.div>
       </div>
     );
