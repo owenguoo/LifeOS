@@ -43,8 +43,11 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
       } else {
         setError('No token received from server');
       }
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Login failed');
+    } catch (err: unknown) {
+      const errorMessage = err && typeof err === 'object' && 'response' in err 
+        ? ((err.response as { data?: { detail?: string } })?.data?.detail) || 'Login failed'
+        : 'Login failed';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -71,8 +74,11 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
       } else {
         setError('No token received from server');
       }
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Registration failed');
+    } catch (err: unknown) {
+      const errorMessage = err && typeof err === 'object' && 'response' in err 
+        ? ((err.response as { data?: { detail?: string } })?.data?.detail) || 'Registration failed'
+        : 'Registration failed';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
