@@ -8,7 +8,7 @@ interface AuthContextType {
   token: string | null;
   loading: boolean;
   login: (token: string) => void;
-  logout: () => void;
+  logout: () => Promise<void>;
   axiosInstance: AxiosInstance;
 }
 
@@ -38,7 +38,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('auth_token', newToken);
   };
 
-  const logout = () => {
+  const logout = async () => {
+    // Try to end video system before logout
+    if (token) {
+      try {
+        await axiosInstance.post('/api/v1/system/end');
+        console.log('Video system ended on logout');
+      } catch (error) {
+        console.error('Failed to end video system on logout:', error);
+      }
+    }
+    
     setToken(null);
     setIsAuthenticated(false);
     localStorage.removeItem('auth_token');

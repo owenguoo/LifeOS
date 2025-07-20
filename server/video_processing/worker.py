@@ -10,11 +10,13 @@ from uuid import UUID
 from twelvelabs import TwelveLabs
 from video_queue.queue_manager import VideoQueueManager
 from video_injestion.s3_storage import S3StorageManager
+from config import Config
 from database.supabase_client import SupabaseManager
 from app.services.embedding_service import embedding_service
 from app.services.vector_store import vector_store
 from app.models.memory import MemoryPoint
 from automations.automation_controller import AutomationController
+from performance_monitor import performance_monitor
 
 
 class VideoProcessingWorker:
@@ -96,21 +98,40 @@ class VideoProcessingWorker:
         
         while self.is_running:
             try:
-                # Get next video segment from queue
-                print("Getting video segment from queue")
-                job = await self.queue_manager.get_video_segment(timeout=5)
-                print("Got video segment from queue")
+                # Get next video segment from queue with optimized timeout
+                job = await self.queue_manager.get_video_segment()
                 
                 if job:
+                    processing_start = time.time()
                     print(f"Worker {self.worker_id} processing: {job['video_path']}")
                     print(f"Worker {self.worker_id} job metadata: {job}")
+                    
                     result = await self.process_video_segment(job)
+                    
+                    processing_end = time.time()
                     
                     if result and "error" not in result:
                         self.processed_count += 1
+                        
+                        # Track processing timing
+                        performance_monitor.track_segment_timing(
+                            result.get("video_id", f"job_{self.processed_count}"),
+                            processing_start,
+                            processing_end,
+                            "total_processing"
+                        )
+                        
                         print(f"Worker {self.worker_id} completed job {self.processed_count}: {job['video_path']}")
                     else:
                         print(f"Worker {self.worker_id} failed to process: {job['video_path']}")
+                        
+                        # Track failed processing
+                        performance_monitor.track_segment_timing(
+                            f"failed_job_{time.time()}",
+                            processing_start,
+                            processing_end,
+                            "failed_processing"
+                        )
                 
                 else:
                     # No jobs available, short sleep
@@ -137,7 +158,7 @@ class VideoProcessingWorker:
             linking_uuid = self.supabase_manager.generate_linking_uuid()
             print(f"Worker {self.worker_id} generated linking UUID: {linking_uuid}")
             
-            # Run TwelveLabs upload and S3 upload in parallel
+            # Run TwelveLabs upload, S3 upload, and preprocessing in parallel
             upload_tasks = await asyncio.gather(
                 self.upload_video(video_path, metadata),
                 asyncio.get_event_loop().run_in_executor(
@@ -145,10 +166,12 @@ class VideoProcessingWorker:
                     self.s3_manager.upload_video_segment, 
                     video_path
                 ),
+                # Pre-generate embedding task concurrently
+                self.embedding_service.create_video_embedding_task(file_path=video_path),
                 return_exceptions=True
             )
             
-            twelvelabs_video_id, s3_url = upload_tasks
+            twelvelabs_video_id, s3_url, embedding_task = upload_tasks
             
             # Check if uploads succeeded
             if isinstance(twelvelabs_video_id, Exception) or not twelvelabs_video_id:
@@ -158,10 +181,24 @@ class VideoProcessingWorker:
                 print(f"⚠️ S3 upload failed: {s3_url}, continuing without S3 URL")
                 s3_url = None
             
-            # Analyze video (this awaits completion of both uploads)
+            # Analyze video and start embedding pipeline in parallel
             # Type assertion since we've already checked it's not an exception
             video_id = str(twelvelabs_video_id) if twelvelabs_video_id else ""
-            analysis = await self.analyze_video(video_id, job.get("timestamp", time.time()), linking_uuid)
+            
+            analysis_task = asyncio.create_task(
+                self.analyze_video(video_id, job.get("timestamp", time.time()), linking_uuid)
+            )
+            
+            # Start embedding processing if task was created successfully
+            if embedding_task and not isinstance(embedding_task, Exception):
+                embedding_future = asyncio.create_task(
+                    self.process_embedding_task(embedding_task, video_path, linking_uuid, job.get("timestamp", time.time()))
+                )
+            else:
+                embedding_future = None
+            
+            # Wait for analysis to complete
+            analysis = await analysis_task
             
             # Add processing metadata
             analysis["worker_id"] = self.worker_id
@@ -181,14 +218,18 @@ class VideoProcessingWorker:
                 print(f"Worker {self.worker_id} stored analysis in Supabase: {supabase_uuid}")
                 analysis["supabase_stored"] = True
                 
-                # Asynchronously embed and store vector with retry (don't block processing)
-                asyncio.create_task(
-                    self.embed_and_store_video_with_retry(
-                        video_path=video_path,
-                        linking_uuid=linking_uuid,
-                        timestamp=job.get("timestamp", time.time())
+                # If embedding was pre-started, use that; otherwise start new one
+                if embedding_future:
+                    asyncio.create_task(self.finalize_embedding(embedding_future, linking_uuid))
+                else:
+                    # Fallback: start embedding process
+                    asyncio.create_task(
+                        self.embed_and_store_video_with_retry(
+                            video_path=video_path,
+                            linking_uuid=linking_uuid,
+                            timestamp=job.get("timestamp", time.time())
+                        )
                     )
-                )
                 
                 # Trigger automations based on the video summary
                 summary = analysis.get("detailed_summary", "")
@@ -238,25 +279,55 @@ class VideoProcessingWorker:
             
             print(f"Worker {self.worker_id} upload task created: {task.id}")
             
-            # Wait for processing to complete
+            # Wait for processing to complete with async polling
             def print_status(task):
                 print(f"Worker {self.worker_id} status: {task.status}")
             
-            task.wait_for_done(
-                sleep_interval=2,
-                callback=print_status
-            )
+            # Use async polling to avoid blocking the entire worker
+            polling_interval = getattr(Config, 'TWELVELABS_POLLING_INTERVAL', 1.0)
+            video_id = await self._wait_for_task_async(task, polling_interval, print_status)
             
-            if task.status == "ready":
-                print(f"Worker {self.worker_id} video processed successfully: {task.video_id}")
-                return task.video_id
+            if video_id:
+                print(f"Worker {self.worker_id} video processed successfully: {video_id}")
+                return video_id
             else:
-                print(f"Worker {self.worker_id} video processing failed: {task.status}")
+                print(f"Worker {self.worker_id} video processing failed")
                 return None
+            
+            # The async wait already handles the return logic
                 
         except Exception as e:
             print(f"Worker {self.worker_id} error uploading video: {e}")
             return None
+    
+    async def _wait_for_task_async(self, task, sleep_interval: float, callback=None) -> Optional[str]:
+        """Async version of task.wait_for_done to prevent blocking"""
+        max_wait_time = 180  # 3 minutes max wait
+        start_time = time.time()
+        
+        while time.time() - start_time < max_wait_time:
+            try:
+                # Get fresh task status from API
+                current_task = self.client.task.retrieve(task.id)
+                
+                if callback:
+                    callback(current_task)
+                
+                if current_task.status == "ready":
+                    return current_task.video_id
+                elif current_task.status in ["failed", "error"]:
+                    print(f"Worker {self.worker_id} task failed: {current_task.status}")
+                    return None
+                    
+                # Use asyncio.sleep instead of time.sleep to yield control
+                await asyncio.sleep(sleep_interval)
+                
+            except Exception as e:
+                print(f"Worker {self.worker_id} error checking task status: {e}")
+                await asyncio.sleep(sleep_interval)
+        
+        print(f"Worker {self.worker_id} task timed out after {max_wait_time}s")
+        return None
     
     async def analyze_video(self, video_id: str, timestamp: float, linking_uuid: str) -> Dict:
         """Analyze video using TwelveLabs Pegasus"""
@@ -329,9 +400,14 @@ class VideoProcessingWorker:
                 return False
             
             # Create memory point for vector storage
+            # Get user_id from job metadata or use a default
+            user_id = job.get("user_id", metadata.get("user_id"))
+            if not user_id:
+                return {"error": "No user_id provided in job metadata"}
+            
             memory = MemoryPoint(
                 id=UUID(linking_uuid),  # Use the same UUID as Supabase
-                user_id=UUID("01465a04-d0ec-4325-b189-f682e220ad40"),  # Demo user ID
+                user_id=UUID(user_id),
                 content=video_path,
                 content_type="video",
                 timestamp=datetime.fromtimestamp(timestamp),
@@ -368,6 +444,89 @@ class VideoProcessingWorker:
                     await asyncio.sleep(2 ** attempt)  # Exponential backoff
         
         return False
+    
+    async def process_embedding_task(self, embedding_task, video_path: str, linking_uuid: str, timestamp: float) -> bool:
+        """Process pre-created embedding task to completion"""
+        try:
+            # Wait for embedding completion
+            final_status = await self.embedding_service.wait_for_embedding_completion(embedding_task)
+            
+            if final_status != "ready":
+                print(f"Worker {self.worker_id} embedding task failed: {final_status}")
+                return False
+            
+            # Retrieve embeddings
+            embeddings = await self.embedding_service.retrieve_video_embeddings(embedding_task)
+            
+            if not embeddings:
+                return False
+            
+            # Store in vector database
+            return await self.store_embedding_in_vector_db(embeddings, linking_uuid, timestamp, video_path)
+            
+        except Exception as e:
+            print(f"Worker {self.worker_id} error processing embedding task: {e}")
+            return False
+    
+    async def finalize_embedding(self, embedding_future, linking_uuid: str) -> None:
+        """Finalize embedding processing when ready"""
+        try:
+            success = await embedding_future
+            if success:
+                print(f"Worker {self.worker_id} embedding pipeline completed for: {linking_uuid}")
+            else:
+                print(f"Worker {self.worker_id} embedding pipeline failed for: {linking_uuid}")
+        except Exception as e:
+            print(f"Worker {self.worker_id} error finalizing embedding: {e}")
+    
+    async def store_embedding_in_vector_db(self, embeddings, linking_uuid: str, timestamp: float, video_path: str) -> bool:
+        """Store embeddings in vector database"""
+        try:
+            task_result = embeddings.get("embeddings")
+            if not task_result:
+                return False
+
+            video_embedding = None
+            
+            if hasattr(task_result, 'video_embedding') and task_result.video_embedding:
+                video_embedding_obj = task_result.video_embedding
+                
+                if hasattr(video_embedding_obj, 'segments') and video_embedding_obj.segments:
+                    first_segment = video_embedding_obj.segments[0]
+                    if hasattr(first_segment, 'embeddings_float'):
+                        video_embedding = first_segment.embeddings_float
+            
+            if not video_embedding:
+                return False
+            
+            # Create memory point for vector storage
+            # Get user_id from job metadata or use a default
+            user_id = job.get("user_id", metadata.get("user_id"))
+            if not user_id:
+                return {"error": "No user_id provided in job metadata"}
+            
+            memory = MemoryPoint(
+                id=UUID(linking_uuid),
+                user_id=UUID(user_id),
+                content=video_path,
+                content_type="video",
+                timestamp=datetime.fromtimestamp(timestamp),
+                metadata={},
+                tags=[],
+                source_id=None,
+                embedding=video_embedding
+            )
+            
+            success = await self.vector_store.add_memory(memory)
+            
+            if success:
+                print(f"Worker {self.worker_id} stored video embedding in Qdrant: {linking_uuid}")
+            
+            return success
+            
+        except Exception as e:
+            print(f"Worker {self.worker_id} error storing embedding: {e}")
+            return False
     
     async def run_automations_with_retry(self, video_id: str, summary: str, metadata: dict, max_retries: int = 2) -> bool:
         """Run automations with retry logic"""

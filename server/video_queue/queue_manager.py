@@ -76,14 +76,15 @@ class VideoQueueManager:
             print(f"Error adding video segment data to queue: {e}")
             return False
     
-    async def get_video_segment(self, timeout: int = 5) -> Optional[Dict[str, Any]]:
-        """Get next video segment from the processing queue"""
+    async def get_video_segment(self, timeout: int = None) -> Optional[Dict[str, Any]]:
+        """Get next video segment from the processing queue with configurable timeout"""
         try:
             if not self.redis:
                 await self.connect()
             
-            # Use BRPOP (blocking right pop) with timeout
-            result = await self.redis.brpop([self.queue_name], timeout=timeout)
+            # Use BRPOP (blocking right pop) with configurable timeout
+            actual_timeout = timeout or getattr(Config, 'WORKER_TIMEOUT', 2)
+            result = await self.redis.brpop([self.queue_name], timeout=actual_timeout)
             
             if result:
                 queue_name, job_data = result
@@ -117,28 +118,30 @@ class VideoQueueManager:
             return False
     
     async def add_batch_segments(self, video_paths: list, metadata: Dict[str, Any] = {}) -> int:
-        """Add multiple video segments to queue in batch"""
+        """Add multiple video segments to queue in optimized batch"""
         try:
             if not self.redis:
                 await self.connect()
             
+            current_time = time.time()
             jobs = []
+            
             for video_path in video_paths:
                 job_data = {
                     "video_path": video_path,
                     "metadata": metadata or {},
-                    "timestamp": time.time(),
+                    "timestamp": current_time,  # Use same timestamp for batch
                     "status": "pending"
                 }
                 jobs.append(json.dumps(job_data))
             
-            # Use pipeline for batch operation
+            # Use pipeline for atomic batch operation
             pipe = self.redis.pipeline()
-            for job in jobs:
-                pipe.lpush(self.queue_name, job)
+            # Add all jobs in single pipeline execution
+            pipe.lpush(self.queue_name, *jobs)
             await pipe.execute()
             
-            print(f"Added {len(jobs)} video segments to queue")
+            print(f"Added {len(jobs)} video segments to queue in batch")
             return len(jobs)
             
         except Exception as e:

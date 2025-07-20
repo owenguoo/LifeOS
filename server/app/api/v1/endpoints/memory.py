@@ -23,6 +23,8 @@ from app.services.embedding_service import embedding_service
 from app.services.text_embedding_service import text_embedding_service
 from app.services.openai_service import openai_service
 from database.supabase_client import SupabaseManager
+from app.middleware.simple_auth import get_current_user
+from app.schemas.simple_auth import User
 
 logger = logging.getLogger(__name__)
 
@@ -31,12 +33,11 @@ router = APIRouter()
 # Initialize Supabase manager
 supabase_manager = SupabaseManager()
 
-# Temporary user ID for demo purposes (in real app, this would come from auth)
-DEMO_USER_ID = UUID("8c0ba789-5f7f-4fce-a651-ce08fb6c0024")
+# User ID now comes from authentication
 
 
 @router.post("/create", response_model=MemoryResponse)
-async def create_memory(request: MemoryCreateRequest):
+async def create_memory(request: MemoryCreateRequest, current_user: User = Depends(get_current_user)):
     """Create a new memory with vector embedding"""
     try:
         # Process video file/URL to get embedding
@@ -67,7 +68,7 @@ async def create_memory(request: MemoryCreateRequest):
 
         # Create memory point
         memory = MemoryPoint(
-            user_id=DEMO_USER_ID,  # In real app, get from auth context
+            user_id=UUID(current_user.id),
             content=request.content,  # This will be the video file path or URL
             content_type="video",  # Always video since we only store videos
             timestamp=datetime.utcnow(),
@@ -107,7 +108,7 @@ async def create_memory(request: MemoryCreateRequest):
 
 
 @router.post("/search", response_model=MemorySearchResponse)
-async def search_memories(request: MemorySearchRequest):
+async def search_memories(request: MemorySearchRequest, current_user: User = Depends(get_current_user)):
     """Search memories using semantic similarity"""
     try:
         start_time = time.time()
@@ -122,7 +123,7 @@ async def search_memories(request: MemorySearchRequest):
 
         # Search memories
         results = await vector_store.search_memories(
-            user_id=DEMO_USER_ID,  # In real app, get from auth context
+            user_id=UUID(current_user.id),
             query_vector=query_embedding,
             limit=request.limit,
             date_from=request.date_from,
@@ -185,7 +186,7 @@ async def search_memories(request: MemorySearchRequest):
 
 
 @router.post("/chatbot", response_model=ChatbotQueryResponse)
-async def chatbot_query(request: ChatbotQueryRequest):
+async def chatbot_query(request: ChatbotQueryRequest, current_user: User = Depends(get_current_user)):
     """Chatbot endpoint that refines user input and finds the best matching video"""
     try:
         start_time = time.time()
@@ -206,7 +207,7 @@ async def chatbot_query(request: ChatbotQueryRequest):
 
         # Step 3: Search for top 10 matches
         results = await vector_store.search_memories(
-            user_id=DEMO_USER_ID,  # In real app, get from auth context
+            user_id=UUID(current_user.id),
             query_vector=query_embedding,
             limit=10,  # Get top 10 matches
             score_threshold=request.confidence_threshold or 0.7,

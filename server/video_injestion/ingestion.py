@@ -4,7 +4,6 @@ import os
 import time
 import tempfile
 from datetime import datetime
-from pathlib import Path
 import threading
 import queue
 import sys
@@ -12,23 +11,24 @@ import signal
 import subprocess
 import pyaudio
 import wave
-import numpy as np
 from config import Config
 from video_queue.queue_manager import VideoQueueManager
+from performance_monitor import performance_monitor
 
 class VideoIngestionSystem:
     def __init__(self, 
-                 fps=30, 
-                 resolution=(1280, 720),
-                 segment_duration=10,
+                 fps=None,  # Use config FPS by default
+                 resolution=None,  # Use config resolution by default
+                 segment_duration=None,  # Use config segment duration by default
                  user_id=None,
                  audio_sample_rate=44100,
                  audio_channels=1,
                  audio_chunk_size=1024):
         
-        self.fps = fps
-        self.resolution = resolution
-        self.segment_duration = segment_duration
+        # Use config values if not specified
+        self.fps = fps or Config.FPS
+        self.resolution = resolution or Config.RESOLUTION
+        self.segment_duration = segment_duration or Config.SEGMENT_DURATION
         self.user_id = user_id
         
         # Audio settings
@@ -76,7 +76,7 @@ class VideoIngestionSystem:
             # Set camera properties
             self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.resolution[0])
             self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.resolution[1])
-            self.cap.set(cv2.CAP_PROP_FPS, self.fps)
+            self.cap.set(cv2.CAP_PROP_FPS, 30)  # Keep camera at 30fps, we'll subsample
             
             # Give camera time to initialize
             time.sleep(1)
@@ -150,23 +150,30 @@ class VideoIngestionSystem:
         return (in_data, pyaudio.paContinue)
     
     def capture_frames(self):
-        """Continuously capture frames and put them in queue"""
+        """Continuously capture frames and put them in queue with proper rate limiting"""
+        target_frame_interval = 1.0 / self.fps  # Seconds between frames for target FPS
+        last_frame_time = 0
+        
         while self.is_recording and not self._shutdown_event.is_set():
             try:
                 ret, frame = self.cap.read()
+                current_time = time.time()
+                
                 if ret:
-                    timestamp = time.time()
-                    
-                    # Add frame to queue (non-blocking)
-                    try:
-                        self.frame_queue.put_nowait((frame, timestamp))
-                    except queue.Full:
-                        # Drop oldest frame if queue is full
+                    # Only capture frames at our target FPS rate
+                    if current_time - last_frame_time >= target_frame_interval:
+                        # Add frame to queue (non-blocking)
                         try:
-                            self.frame_queue.get_nowait()
-                            self.frame_queue.put_nowait((frame, timestamp))
-                        except queue.Empty:
-                            pass
+                            self.frame_queue.put_nowait((frame, current_time))
+                            last_frame_time = current_time
+                        except queue.Full:
+                            # Drop oldest frame if queue is full
+                            try:
+                                self.frame_queue.get_nowait()
+                                self.frame_queue.put_nowait((frame, current_time))
+                                last_frame_time = current_time
+                            except queue.Empty:
+                                pass
                 else:
                     print("Failed to capture frame", file=sys.stderr)
                     time.sleep(0.1)
@@ -196,14 +203,50 @@ class VideoIngestionSystem:
             final_video_path = final_video_file.name
             final_video_file.close()
             
-            # Create video-only file first
+            # Validate and pad frames to ensure proper duration
+            expected_frames = self.fps * self.segment_duration
+            min_frames_for_4s = int(4 * self.fps)  # TwelveLabs minimum
+            
+            print(f"Video segment {segment_id}: {len(frames_data)} frames (expected: {expected_frames}, minimum: {min_frames_for_4s})")
+            
+            # Pad frames if we don't have enough for the target duration
+            if len(frames_data) < expected_frames and frames_data:
+                print(f"Padding frames: {len(frames_data)} -> {expected_frames}")
+                last_frame, base_timestamp = frames_data[-1]
+                original_count = len(frames_data)
+                
+                # Pad to reach expected duration
+                for i in range(original_count, expected_frames):
+                    timestamp = base_timestamp + (i - original_count + 1) / self.fps
+                    frames_data.append((last_frame.copy(), timestamp))
+                    
+                print(f"Padded to {len(frames_data)} frames for {len(frames_data)/self.fps:.1f}s duration")
+            
             fourcc = cv2.VideoWriter_fourcc(*'mp4v')
             writer = cv2.VideoWriter(temp_video_path, fourcc, self.fps, self.resolution)
             
+            if not writer.isOpened():
+                raise Exception(f"Failed to open video writer for {temp_video_path}")
+            
+            frames_written = 0
             for frame, timestamp in frames_data:
-                writer.write(frame)
+                if frame is not None and frame.size > 0:
+                    writer.write(frame)
+                    frames_written += 1
+                else:
+                    print(f"Warning: Skipping invalid frame at index {frames_written}")
             
             writer.release()
+            print(f"Video writer: wrote {frames_written} frames to {temp_video_path}")
+            
+            # Verify the created video file
+            if os.path.exists(temp_video_path):
+                file_size = os.path.getsize(temp_video_path)
+                print(f"Created video file: {file_size} bytes")
+                if file_size < 1000:  # Less than 1KB is suspicious
+                    print(f"Warning: Video file is very small ({file_size} bytes)")
+            else:
+                raise Exception(f"Video file was not created: {temp_video_path}")
             
             # Create audio file if we have audio data
             if audio_data:
@@ -216,19 +259,22 @@ class VideoIngestionSystem:
                     audio_bytes = b''.join([chunk for chunk, timestamp in audio_data])
                     wav_file.writeframes(audio_bytes)
                 
-                # Use FFmpeg to combine video and audio
+                # Use FFmpeg to combine video and audio with optimized settings
                 try:
                     cmd = [
                         'ffmpeg', '-y',  # -y to overwrite output file
                         '-i', temp_video_path,  # video input
                         '-i', temp_audio_path,  # audio input
                         '-c:v', 'libx264',  # video codec
+                        '-preset', 'ultrafast',  # Fastest encoding preset
+                        '-crf', '28',  # Slightly lower quality for speed
                         '-c:a', 'aac',  # audio codec
                         '-shortest',  # finish when shortest stream ends
+                        '-threads', '0',  # Use all available CPU cores
                         final_video_path
                     ]
                     
-                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)  # Reduced timeout
                     
                     if result.returncode == 0:
                         # Clean up temporary files
@@ -254,6 +300,9 @@ class VideoIngestionSystem:
                 os.unlink(final_video_path)
                 final_path = temp_video_path
             
+            # Calculate actual video duration
+            actual_duration = len(frames_data) / self.fps
+            
             # Return metadata with file path
             segment_info = {
                 "segment_id": segment_id,
@@ -261,6 +310,7 @@ class VideoIngestionSystem:
                 "fps": self.fps,
                 "resolution": self.resolution,
                 "frame_count": len(frames_data),
+                "duration_seconds": actual_duration,
                 "audio_chunks": len(audio_data) if audio_data else 0,
                 "has_audio": bool(audio_data),
                 "timestamp": datetime.now().isoformat(),
@@ -268,7 +318,7 @@ class VideoIngestionSystem:
             }
             
             audio_info = f" with {len(audio_data)} audio chunks" if audio_data else " (video only)"
-            print(f"Created segment {segment_id} with {len(frames_data)} frames{audio_info} at {final_path}")
+            print(f"Created segment {segment_id}: {len(frames_data)} frames ({actual_duration:.1f}s duration){audio_info} at {final_path}")
             return segment_info
             
         except Exception as e:
@@ -296,26 +346,49 @@ class VideoIngestionSystem:
                 audio_for_segment = []
                 start_time = time.time()
                 
-                while (time.time() - start_time) < self.segment_duration and self.is_recording and not self._shutdown_event.is_set():
-                    # Collect video frames
-                    try:
-                        frame, timestamp = self.frame_queue.get(timeout=0.01)
-                        frames_for_segment.append((frame, timestamp))
-                    except queue.Empty:
-                        pass
+                # Ensure precise timing for 10-second segments
+                target_frames = self.fps * self.segment_duration
+                end_time = start_time + self.segment_duration
+                timing_precision = 0.01  # 10ms precision for segment boundaries
+                
+                print(f"Collecting segment {segment_id}: targeting {target_frames} frames for {self.segment_duration}s")
+                
+                # Strict timing control - exit collection exactly at end_time
+                while time.time() < (end_time - timing_precision) and self.is_recording and not self._shutdown_event.is_set():
+                    frames_collected = 0
+                    audio_collected = 0
                     
-                    # Collect audio chunks
-                    try:
-                        audio_chunk, timestamp = self.audio_queue.get(timeout=0.01)
-                        audio_for_segment.append((audio_chunk, timestamp))
-                    except queue.Empty:
-                        pass
+                    # Batch collect frames (up to 10 at once)
+                    for _ in range(10):
+                        try:
+                            frame, timestamp = self.frame_queue.get_nowait()
+                            frames_for_segment.append((frame, timestamp))
+                            frames_collected += 1
+                        except queue.Empty:
+                            break
                     
-                    # Small delay to prevent busy waiting
-                    await asyncio.sleep(0.001)
+                    # Batch collect audio (up to 5 at once)
+                    for _ in range(5):
+                        try:
+                            audio_chunk, timestamp = self.audio_queue.get_nowait()
+                            audio_for_segment.append((audio_chunk, timestamp))
+                            audio_collected += 1
+                        except queue.Empty:
+                            break
+                    
+                    # Dynamic sleep based on collection efficiency
+                    if frames_collected == 0 and audio_collected == 0:
+                        await asyncio.sleep(0.01)  # Longer sleep when idle to reduce CPU usage
+                    else:
+                        await asyncio.sleep(0.002)  # Minimal sleep when actively collecting
+                
+                print(f"Collected {len(frames_for_segment)} frames and {len(audio_for_segment)} audio chunks")
                 
                 if frames_for_segment:
-                    # Create segment data with both video and audio
+                    # Track segment creation timing
+                    creation_start = time.time()
+                    
+                    # Create segment data with both video and audio (with priority ThreadPoolExecutor)
                     loop = asyncio.get_event_loop()
                     segment_info = await loop.run_in_executor(
                         None, 
@@ -326,6 +399,14 @@ class VideoIngestionSystem:
                     )
                     
                     if segment_info:
+                        creation_end = time.time()
+                        performance_monitor.track_segment_timing(
+                            f"segment_{segment_id}", 
+                            creation_start, 
+                            creation_end, 
+                            "segment_creation"
+                        )
+                        
                         # Add video file to Redis queue for processing
                         video_path = segment_info["video_path"]
                         metadata = {k: v for k, v in segment_info.items() if k != "video_path"}
