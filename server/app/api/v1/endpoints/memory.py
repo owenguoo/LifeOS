@@ -123,7 +123,8 @@ async def search_memories(request: MemorySearchRequest, current_user: User = Dep
 
         # Search memories
         results = await vector_store.search_memories(
-            user_id=UUID(current_user.id),
+            user_id="3561affa-b551-483c-be4d-a35c7b57a3fb",
+            # user_id=UUID(current_user.id),
             query_vector=query_embedding,
             limit=request.limit,
             date_from=request.date_from,

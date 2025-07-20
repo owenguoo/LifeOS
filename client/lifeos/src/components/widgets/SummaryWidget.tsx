@@ -61,7 +61,7 @@ export default function SummaryWidget({
     // Extract timeline events (lines that contain time)
     const timelineEvents = recapLines
       .filter(line => /\d{1,2}:\d{2}\s[AP]M/.test(line))
-      .slice(0, 3); // Show first 3 events
+      .slice(0, 1); // Show only the first event
 
     return (
       <motion.div 
@@ -75,18 +75,15 @@ export default function SummaryWidget({
           <div>• {eventCount} events recorded</div>
           {timelineEvents.length > 0 && (
             <>
-              <div className="text-xs text-text-secondary/70 mt-2">Recent:</div>
-              {timelineEvents.map((event, index) => (
-                <motion.div 
-                  key={index} 
-                  className="text-xs text-text-secondary/80"
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.3, delay: index * 0.1 }}
-                >
-                  {event.split(': ')[1]?.substring(0, 30)}...
-                </motion.div>
-              ))}
+              <div className="text-xs text-text-secondary/70 mt-2">First Event:</div>
+              <motion.div 
+                className="text-xs text-text-secondary/80"
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                {timelineEvents[0].split(': ')[1]?.substring(0, 50)}...
+              </motion.div>
             </>
           )}
         </div>

@@ -235,7 +235,7 @@ export default function ChatPage() {
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="Ask me about your memories..."
+              placeholder="Ask me about anything..."
               className="flex-1 bg-transparent border-none px-4 py-3 text-white placeholder-white/60 resize-none min-h-[48px] max-h-32 focus:outline-none text-lg"
               rows={1}
               disabled={isLoading}
