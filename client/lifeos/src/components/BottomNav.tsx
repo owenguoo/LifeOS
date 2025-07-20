@@ -18,38 +18,38 @@ export default function BottomNav() {
     >
       <div className="container mx-auto px-4 py-3">
         <div className="flex items-center justify-around">
-          {/* Chat Tab */}
-          <motion.button 
-            className="flex flex-col items-center p-2 rounded-lg transition-colors group relative"
-            whileHover={{ scale: 1.1, y: -2 }}
-            whileTap={{ scale: 0.95 }}
-            transition={{ type: "spring", stiffness: 400, damping: 17 }}
-            onClick={() => router.push('/')}
-          >
-            <motion.svg
-              className={`w-6 h-6 ${isActive('/') ? 'text-text-primary' : 'text-text-secondary'}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              whileHover={{ rotate: 5 }}
-              transition={{ type: "spring", stiffness: 300 }}
+            {/* Chat Tab */}
+            <motion.button 
+                className="flex flex-col items-center p-2 rounded-lg transition-colors group relative"
+                whileHover={{ scale: 1.1, y: -2 }}
+                whileTap={{ scale: 0.95 }}
+                transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                onClick={() => router.push('/chat')}
             >
-              <path
+            <motion.svg
+                className={`w-6 h-6 ${isActive('/') ? 'text-text-primary' : 'text-text-secondary'}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                whileHover={{ rotate: 5 }}
+                transition={{ type: "spring", stiffness: 300 }}
+            >
+                <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
                 d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-              />
+                />
             </motion.svg>
             <motion.span 
-              className={`text-xs ${isActive('/') ? 'text-text-primary' : 'text-text-secondary'} opacity-0 group-hover:opacity-100 absolute top-full mt-1 whitespace-nowrap`}
-              initial={{ opacity: 0, y: 5 }}
-              whileHover={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.2 }}
+                className={`text-xs ${isActive('/') ? 'text-text-primary' : 'text-text-secondary'} opacity-0 group-hover:opacity-100 absolute top-full mt-1 whitespace-nowrap`}
+                initial={{ opacity: 0, y: 5 }}
+                whileHover={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2 }}
             >
-              Chat
+                Chat
             </motion.span>
-          </motion.button>
+        </motion.button>
 
           {/* Highlights Tab */}
           <motion.button 
