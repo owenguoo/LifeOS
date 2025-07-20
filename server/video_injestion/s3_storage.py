@@ -12,9 +12,9 @@ from config import Config
 class S3StorageManager:
     """Handles uploading video segments to S3"""
     
-    def __init__(self, bucket_name: str = None, region: str = "us-east-1"):
+    def __init__(self, bucket_name: str = None, region: str = None):
         self.bucket_name = bucket_name or Config.S3_BUCKET_NAME
-        self.region = region
+        self.region = region or Config.S3_REGION
         self.s3_client = None
         self._initialize_client()
     

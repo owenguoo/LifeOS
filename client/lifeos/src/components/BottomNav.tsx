@@ -1,7 +1,14 @@
+'use client';
+
 import { motion } from 'framer-motion';
-import Link from 'next/link';
+import { useRouter, usePathname } from 'next/navigation';
 
 export default function BottomNav() {
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const isActive = (path: string) => pathname === path;
+
   return (
     <motion.nav 
       className="fixed bottom-0 left-0 right-0 z-20 glass-effect border-t border-border mb-16 max-w-[301px] mx-auto py-2"
@@ -11,14 +18,71 @@ export default function BottomNav() {
     >
       <div className="container mx-auto px-4 py-3">
         <div className="flex items-center justify-around">
-          {/* Chat Tab */}
-          <Link href="/chat">
+            {/* Chat Tab */}
             <motion.button 
-              className="flex flex-col items-center p-2 rounded-lg transition-colors group relative"
-              whileHover={{ scale: 1.1, y: -2 }}
-              whileTap={{ scale: 0.95 }}
-              transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                className="flex flex-col items-center p-2 rounded-lg transition-colors group relative"
+                whileHover={{ scale: 1.1, y: -2 }}
+                whileTap={{ scale: 0.95 }}
+                transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                onClick={() => router.push('/chat')}
             >
+            <motion.svg
+                className={`w-6 h-6 ${isActive('/') ? 'text-text-primary' : 'text-text-secondary'}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                whileHover={{ rotate: 5 }}
+                transition={{ type: "spring", stiffness: 300 }}
+            >
+                <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                />
+            </motion.svg>
+            <motion.span 
+                className={`text-xs ${isActive('/') ? 'text-text-primary' : 'text-text-secondary'} opacity-0 group-hover:opacity-100 absolute top-full mt-1 whitespace-nowrap`}
+                initial={{ opacity: 0, y: 5 }}
+                whileHover={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2 }}
+            >
+                Chat
+            </motion.span>
+        </motion.button>
+
+          {/* Highlights Tab */}
+          <motion.button 
+            className="flex flex-col items-center p-2 rounded-lg transition-colors group relative"
+            whileHover={{ scale: 1.1, y: -2 }}
+            whileTap={{ scale: 0.95 }}
+            transition={{ type: "spring", stiffness: 400, damping: 17 }}
+            onClick={() => router.push('/highlights')}
+          >
+            <motion.img
+              src="/highlights.svg"
+              className={`w-6 h-6 ${isActive('/highlights') ? 'text-text-primary' : 'text-text-secondary'}`}
+              whileHover={{ rotate: 5 }}
+              transition={{ type: "spring", stiffness: 300 }}
+              alt="Highlights"
+            />
+            <motion.span 
+              className={`text-xs ${isActive('/highlights') ? 'text-text-primary' : 'text-text-secondary'} opacity-0 group-hover:opacity-100 absolute top-full mt-1 whitespace-nowrap`}
+              initial={{ opacity: 0, y: 5 }}
+              whileHover={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              Highlights
+            </motion.span>
+          </motion.button>
+
+          {/* Activity Tab */}
+          <motion.button 
+            className="flex flex-col items-center p-2 rounded-lg transition-colors group relative"
+            whileHover={{ scale: 1.1, y: -2 }}
+            whileTap={{ scale: 0.95 }}
+            transition={{ type: "spring", stiffness: 400, damping: 17 }}
+          >
             <motion.svg
               className="w-6 h-6 text-text-secondary"
               fill="none"
@@ -31,50 +95,11 @@ export default function BottomNav() {
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-              />
-            </motion.svg>
-            <motion.span 
-              className="text-xs text-text-secondary opacity-0 group-hover:opacity-100 absolute top-full mt-1 whitespace-nowrap"
-              initial={{ opacity: 0, y: 5 }}
-              whileHover={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.2 }}
-            >
-              Chat
-            </motion.span>
-            </motion.button>
-          </Link>
-
-          {/* Activity Tab */}
-          <motion.button 
-            className="flex flex-col items-center p-2 rounded-lg transition-colors group relative"
-            whileHover={{ scale: 1.1, y: -2 }}
-            whileTap={{ scale: 0.95 }}
-            transition={{ type: "spring", stiffness: 400, damping: 17 }}
-          >
-            <motion.svg
-              className="w-6 h-6 text-text-primary"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              animate={{ 
-                scale: [1, 1.1, 1],
-                rotate: [0, 5, -5, 0]
-              }}
-              transition={{ 
-                scale: { duration: 2, repeat: Infinity, ease: "easeInOut" },
-                rotate: { duration: 3, repeat: Infinity, ease: "easeInOut" }
-              }}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
                 d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
               />
             </motion.svg>
             <motion.span 
-              className="text-xs text-text-primary opacity-0 group-hover:opacity-100 absolute top-full mt-1 whitespace-nowrap"
+              className="text-xs text-text-secondary opacity-0 group-hover:opacity-100 absolute top-full mt-1 whitespace-nowrap"
               initial={{ opacity: 0, y: 5 }}
               whileHover={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.2 }}

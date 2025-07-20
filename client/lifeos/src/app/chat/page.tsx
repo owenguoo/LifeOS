@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthScreen from '@/components/AuthScreen';
 import BottomNav from '@/components/BottomNav';
@@ -28,6 +29,7 @@ interface ChatbotResponse {
 
 export default function ChatPage() {
   const { isAuthenticated, login, token, loading } = useAuth();
+  const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -131,18 +133,36 @@ export default function ChatPage() {
     <div className="min-h-screen flex flex-col bg-background">
       {/* Header */}
       <motion.header 
-        className="fixed top-0 left-0 right-0 z-20 pt-8 pb-4"
-        initial={{ opacity: 0, y: -20 }}
+        className="fixed py-4 top-12 left-12 right-12 z-20 glass-effect border-b border-border"
+        initial={{ opacity: 0, y: -50 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
+        transition={{ duration: 0.8 }}
       >
-        <div className="text-center">
-          <h1 className="text-xl font-semibold text-text-primary">Chat with LifeOS</h1>
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <motion.button
+              onClick={() => router.push('/')}
+              className="flex items-center text-text-secondary hover:text-text-primary transition-colors"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6, delay: 0.1 }}
+            >
+              <img src="/home.svg" alt="Home" className="w-6 h-6" />
+            </motion.button>
+            <motion.h1 
+              className="text-2xl font-semibold text-text-primary mx-auto"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+            >
+              Chat with LifeOS
+            </motion.h1>
+          </div>
         </div>
       </motion.header>
 
       {/* Messages */}
-      <main className="flex-1 pt-24 pb-56 px-6 overflow-y-auto">
+      <main className="flex-1 pt-40 pb-56 px-6 overflow-y-auto">
         <div className="container mx-auto max-w-2xl px-4">
           <AnimatePresence>
             {messages.length === 0 ? (
