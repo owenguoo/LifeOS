@@ -39,7 +39,7 @@ class Config:
     
     # S3 settings
     S3_BUCKET_NAME = "lifeos-video-segments"
-    S3_REGION = "us-east-1"
+    S3_REGION = "us-east-2"
 
 
 # Easy adjustment functions

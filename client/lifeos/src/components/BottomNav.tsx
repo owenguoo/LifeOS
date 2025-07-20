@@ -1,6 +1,14 @@
+'use client';
+
 import { motion } from 'framer-motion';
+import { useRouter, usePathname } from 'next/navigation';
 
 export default function BottomNav() {
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const isActive = (path: string) => pathname === path;
+
   return (
     <motion.nav 
       className="fixed bottom-0 left-0 right-0 z-20 glass-effect border-t border-border mb-16 max-w-[301px] mx-auto py-2"
@@ -16,9 +24,10 @@ export default function BottomNav() {
             whileHover={{ scale: 1.1, y: -2 }}
             whileTap={{ scale: 0.95 }}
             transition={{ type: "spring", stiffness: 400, damping: 17 }}
+            onClick={() => router.push('/')}
           >
             <motion.svg
-              className="w-6 h-6 text-text-secondary"
+              className={`w-6 h-6 ${isActive('/') ? 'text-text-primary' : 'text-text-secondary'}`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -33,12 +42,52 @@ export default function BottomNav() {
               />
             </motion.svg>
             <motion.span 
-              className="text-xs text-text-secondary opacity-0 group-hover:opacity-100 absolute top-full mt-1 whitespace-nowrap"
+              className={`text-xs ${isActive('/') ? 'text-text-primary' : 'text-text-secondary'} opacity-0 group-hover:opacity-100 absolute top-full mt-1 whitespace-nowrap`}
               initial={{ opacity: 0, y: 5 }}
               whileHover={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.2 }}
             >
               Chat
+            </motion.span>
+          </motion.button>
+
+          {/* Highlights Tab */}
+          <motion.button 
+            className="flex flex-col items-center p-2 rounded-lg transition-colors group relative"
+            whileHover={{ scale: 1.1, y: -2 }}
+            whileTap={{ scale: 0.95 }}
+            transition={{ type: "spring", stiffness: 400, damping: 17 }}
+            onClick={() => router.push('/highlights')}
+          >
+            <motion.svg
+              className={`w-6 h-6 ${isActive('/highlights') ? 'text-text-primary' : 'text-text-secondary'}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              whileHover={{ rotate: 5 }}
+              transition={{ type: "spring", stiffness: 300 }}
+            >
+              {/* Clapperboard icon */}
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M7 4V2a1 1 0 011-1h8a1 1 0 011 1v2m-9 0h10m-10 0a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 8h6m-6 4h6m-6 4h6"
+              />
+            </motion.svg>
+            <motion.span 
+              className={`text-xs ${isActive('/highlights') ? 'text-text-primary' : 'text-text-secondary'} opacity-0 group-hover:opacity-100 absolute top-full mt-1 whitespace-nowrap`}
+              initial={{ opacity: 0, y: 5 }}
+              whileHover={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              Highlights
             </motion.span>
           </motion.button>
 
@@ -50,7 +99,7 @@ export default function BottomNav() {
             transition={{ type: "spring", stiffness: 400, damping: 17 }}
           >
             <motion.svg
-              className="w-6 h-6 text-text-primary"
+              className="w-6 h-6 text-text-secondary"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -71,7 +120,7 @@ export default function BottomNav() {
               />
             </motion.svg>
             <motion.span 
-              className="text-xs text-text-primary opacity-0 group-hover:opacity-100 absolute top-full mt-1 whitespace-nowrap"
+              className="text-xs text-text-secondary opacity-0 group-hover:opacity-100 absolute top-full mt-1 whitespace-nowrap"
               initial={{ opacity: 0, y: 5 }}
               whileHover={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.2 }}
