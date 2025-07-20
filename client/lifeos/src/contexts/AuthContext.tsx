@@ -21,7 +21,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Create axios instance with auth interceptor
   const axiosInstance: AxiosInstance = axios.create({
-    baseURL: 'http://localhost:8000',
+    baseURL: `${process.env.NEXT_PUBLIC_API_HOST}`,
   });
 
   // Add auth token to requests

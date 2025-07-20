@@ -63,7 +63,7 @@ export default function ChatPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://localhost:8000/api/v1/memory/chatbot', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_HOST}/api/v1/memory/chatbot`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

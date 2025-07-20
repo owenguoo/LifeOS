@@ -28,7 +28,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
     setError('');
 
     try {
-      const response = await axios.post('http://localhost:8000/api/v1/auth/login', {
+      const response = await axios.post(`${process.env.NEXT_PUBLIC_API_HOST}/api/v1/auth/login`, {
         username,
         password
       });
@@ -59,7 +59,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
     setError('');
 
     try {
-      const response = await axios.post('http://localhost:8000/api/v1/auth/register', {
+      const response = await axios.post(`${process.env.NEXT_PUBLIC_API_HOST}/api/v1/auth/register`, {
         username,
         password
       });

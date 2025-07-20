@@ -38,7 +38,7 @@ export default function HighlightsPage() {
       try {
         setLoading(true);
         const response = await axios.get<HighlightsResponse>(
-          'http://localhost:8000/api/v1/highlights/list',
+          `${process.env.NEXT_PUBLIC_API_HOST}/api/v1/highlights/list`,
           {
             headers: {
               'Authorization': `Bearer ${token}`,
