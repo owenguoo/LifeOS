@@ -1,6 +1,6 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { useRouter, usePathname } from 'next/navigation';
 
 export default function BottomNav() {
