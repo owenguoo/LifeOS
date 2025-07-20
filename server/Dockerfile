@@ -12,9 +12,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     rm -rf /var/lib/apt/lists/*
 
 # ---- 2. Python wheels ----
-COPY requirements.txt .
+COPY requirements-web.txt .
 RUN pip install --no-cache-dir --upgrade pip wheel \
- && pip install --no-cache-dir -r requirements.txt
+ && pip install --no-cache-dir -r requirements-web.txt
 
 # ---- 3. app code ----
 COPY . .
@@ -25,4 +25,4 @@ RUN useradd --create-home --shell /bin/bash app \
 USER app
 
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "app.web_app:app", "--host", "0.0.0.0", "--port", "8000"]
