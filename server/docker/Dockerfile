@@ -6,9 +6,13 @@ WORKDIR /app
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     gcc \
+    curl \
     portaudio19-dev \
     python3-dev \
-    curl \
+    libportaudio2 \
+    libportaudiocpp0 \
+    libasound-dev \
+    libsndfile1-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching
