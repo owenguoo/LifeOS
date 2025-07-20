@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import axios from 'axios';
@@ -32,6 +32,8 @@ export default function HighlightsPage() {
   const [highlights, setHighlights] = useState<Highlight[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedVideo, setSelectedVideo] = useState<Highlight | null>(null);
+  const [captionExpanded, setCaptionExpanded] = useState(false);
 
   useEffect(() => {
     const fetchHighlights = async () => {
@@ -80,6 +82,15 @@ export default function HighlightsPage() {
         duration: 0.5,
       },
     },
+  };
+
+  const handleVideoClick = (highlight: Highlight) => {
+    setSelectedVideo(highlight);
+  };
+
+  const closeVideoModal = () => {
+    setSelectedVideo(null);
+    setCaptionExpanded(false);
   };
 
   if (loading) {
@@ -188,6 +199,7 @@ export default function HighlightsPage() {
                   variants={itemVariants}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
+                  onClick={() => handleVideoClick(highlight)}
                 >
                   <video
                     src={highlight.videos.s3_link}
@@ -216,7 +228,7 @@ export default function HighlightsPage() {
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                     <div className="absolute bottom-2 left-2 right-2">
                       <div className="text-white text-xs font-medium truncate">
-                        {highlight.videos.title || highlight.videos.detailed_summary?.substring(0, 30) || 'Untitled'}
+                        {'Summary'}
                       </div>
                       {highlight.videos.duration && (
                         <div className="text-white/80 text-xs">
@@ -240,6 +252,84 @@ export default function HighlightsPage() {
           )}
         </div>
       </main>
+
+      {/* Video Modal */}
+      <AnimatePresence>
+        {selectedVideo && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={closeVideoModal}
+          >
+            <motion.div
+              className="relative w-full max-w-4xl mx-4 aspect-video bg-black rounded-lg overflow-hidden"
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Close button */}
+              <button
+                onClick={closeVideoModal}
+                className="absolute top-4 right-4 z-10 w-8 h-8 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center transition-colors"
+              >
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+
+              {/* Video title */}
+              <div className="absolute top-4 left-4 z-10 max-w-md">
+                <div className="bg-black/50 px-3 py-2 rounded-lg">
+                  <h3 className="text-white text-lg font-semibold break-words">
+                    {'Summary'}
+                  </h3>
+                  {selectedVideo.videos.detailed_summary && (
+                    <div className="mt-2">
+                      <p 
+                        className={`text-white/90 text-sm leading-relaxed ${
+                          captionExpanded ? '' : 'overflow-hidden'
+                        }`}
+                        style={{
+                          display: captionExpanded ? 'block' : '-webkit-box',
+                          WebkitLineClamp: captionExpanded ? 'unset' : 2,
+                          WebkitBoxOrient: captionExpanded ? 'unset' : 'vertical',
+                          overflow: captionExpanded ? 'visible' : 'hidden'
+                        }}
+                      >
+                        {selectedVideo.videos.detailed_summary}
+                      </p>
+                      {selectedVideo.videos.detailed_summary.length > 100 && (
+                        <button
+                          onClick={() => setCaptionExpanded(!captionExpanded)}
+                          className="text-blue-400 hover:text-blue-300 text-xs mt-1 font-medium transition-colors"
+                        >
+                          {captionExpanded ? 'Show less' : 'Show more'}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Video player */}
+              <video
+                src={selectedVideo.videos.s3_link}
+                className="w-full h-full object-contain"
+                poster={selectedVideo.videos.thumbnail_url}
+                controls
+                autoPlay
+                onError={() => {
+                  console.error('Video failed to load in modal:', selectedVideo.videos.s3_link);
+                }}
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <BottomNav />
     </div>
