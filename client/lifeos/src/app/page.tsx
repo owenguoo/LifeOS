@@ -6,7 +6,7 @@ import AnimatedSearchBar from "../components/AnimatedSearchBar";
 import Widget from "../components/Widget";
 import BottomNav from "../components/BottomNav";
 import { useEffect } from "react";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 
 export default function Home() {
   const { isAuthenticated, login, token, loading } = useAuth();
