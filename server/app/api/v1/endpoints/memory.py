@@ -396,7 +396,11 @@ async def get_recent_videos():
     """Get recent videos"""
     try:
         # Query Supabase for recent videos
-        recent_videos = await supabase_manager.get_recent_videos(limit=50)
+        recent_videos = await supabase_manager.get_user_videos(
+            user_id="3561affa-b551-483c-be4d-a35c7b57a3fb",
+            limit=20,  # Get more to ensure we capture today's events
+            offset=0
+        )
 
         return {
             "total_videos": len(recent_videos),
