@@ -82,9 +82,10 @@ export default function BottomNav() {
             whileHover={{ scale: 1.1, y: -2 }}
             whileTap={{ scale: 0.95 }}
             transition={{ type: "spring", stiffness: 400, damping: 17 }}
+            onClick={() => router.push('/activities')}
           >
             <motion.svg
-              className="w-6 h-6 text-text-secondary"
+              className={`w-6 h-6 ${isActive('/activities') ? 'text-text-primary' : 'text-text-secondary'}`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -99,7 +100,7 @@ export default function BottomNav() {
               />
             </motion.svg>
             <motion.span 
-              className="text-xs text-text-secondary opacity-0 group-hover:opacity-100 absolute top-full mt-1 whitespace-nowrap"
+              className={`text-xs ${isActive('/activities') ? 'text-text-primary' : 'text-text-secondary'} opacity-0 group-hover:opacity-100 absolute top-full mt-1 whitespace-nowrap`}
               initial={{ opacity: 0, y: 5 }}
               whileHover={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.2 }}
