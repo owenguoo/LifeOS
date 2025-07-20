@@ -111,9 +111,9 @@ def print_usage():
     print("Modes:")
     print("  ingestion    - Start video ingestion only (puts segments in Redis queue)")
     print("  workers      - Start video processing workers only (processes from Redis queue)")
-    print("  both         - Start both systems (default)")
     print("  monitor      - Monitor Redis queue status")
     print("  help         - Show this help message")
+    print("  [default]    - Start both ingestion and processing systems")
     print()
     print("Requirements:")
     print("  - Redis server running on localhost:6379")
@@ -130,7 +130,7 @@ def print_usage():
     print("Example workflow:")
     print("  1. Start workers: python main.py workers")
     print("  2. Start ingestion: python main.py ingestion")
-    print("  3. Or start both: python main.py both")
+    print("  3. Or start both: python main.py")
 
 
 async def check_redis_connection():
@@ -152,7 +152,7 @@ async def main():
     """Main entry point"""
     
     # Parse command line arguments
-    mode = "both"  # default mode
+    mode = "default"  # default mode: start both systems
     if len(sys.argv) > 1:
         mode = sys.argv[1].lower()
     
@@ -161,14 +161,14 @@ async def main():
         return
     
     # Check Redis connection for modes that need it
-    if mode in ["ingestion", "workers", "both", "monitor"]:
+    if mode in ["ingestion", "workers", "default", "monitor"]:
         if not await check_redis_connection():
             print("❌ Redis is required for this mode. Please start Redis server.")
             sys.exit(1)
     
     # Check for API key for modes that need it
     api_key = os.getenv("TWELVELABS_API_KEY") or Config.TWELVELABS_API_KEY
-    if not api_key and mode in ["workers", "both"]:
+    if not api_key and mode in ["workers", "default"]:
         print("❌ Error: TWELVELABS_API_KEY is required for processing modes")
         print("Please set your API key:")
         print("  export TWELVELABS_API_KEY='your_api_key_here'")
@@ -190,12 +190,9 @@ async def main():
             await manager.start_workers_only()
         elif mode == "monitor":
             await manager.monitor_queue()
-        elif mode == "both":
-            await manager.start_both_systems()
         else:
-            print(f"❌ Unknown mode: {mode}")
-            print_usage()
-            sys.exit(1)
+            # Default behavior: start both systems (removed "both" mode)
+            await manager.start_both_systems()
             
     except KeyboardInterrupt:
         print("\n✅ System stopped by user")
