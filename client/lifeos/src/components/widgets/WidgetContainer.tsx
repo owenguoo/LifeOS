@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../../contexts/AuthContext';
 import { DailySummary } from './types';
@@ -21,7 +21,7 @@ export default function WidgetContainer() {
   // Minimum swipe distance (in px)
   const minSwipeDistance = 50;
 
-  const fetchDailySummary = async () => {
+  const fetchDailySummary = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -33,11 +33,11 @@ export default function WidgetContainer() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [axiosInstance]);
 
   useEffect(() => {
     fetchDailySummary();
-  }, [axiosInstance]);
+  }, [fetchDailySummary]);
 
   const onTouchStart = (e: React.TouchEvent) => {
     setTouchEnd(0);

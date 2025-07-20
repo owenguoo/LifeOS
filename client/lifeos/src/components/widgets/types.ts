@@ -2,7 +2,7 @@ export interface DailySummary {
   date: string;
   message: string;
   events_count: number;
-  events: any[];
+  events: unknown[];
   daily_recap: string;
 }
 

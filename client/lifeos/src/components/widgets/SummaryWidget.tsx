@@ -21,7 +21,7 @@ export default function SummaryWidget({
           transition={{ duration: 0.3 }}
         >
           <div className="text-lg font-medium text-text-primary mb-2">Loading...</div>
-          <div className="text-sm text-text-secondary">Fetching today's summary</div>
+          <div className="text-sm text-text-secondary">Fetching today&apos;s summary</div>
         </motion.div>
       );
     }
@@ -70,7 +70,7 @@ export default function SummaryWidget({
         animate={{ opacity: 1 }}
         transition={{ duration: 0.3 }}
       >
-        <div className="text-lg font-medium text-text-primary mb-2">Today's Summary</div>
+        <div className="text-lg font-medium text-text-primary mb-2">Today&apos;s Summary</div>
         <div className="text-sm text-text-secondary space-y-1">
           <div>• {eventCount} events recorded</div>
           {timelineEvents.length > 0 && (

@@ -50,9 +50,12 @@ export default function AnimatedSearchBar({
 
       setSearchResults(response.data.results);
       setShowResultsModal(true);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Search error:', error);
-      setSearchError(error.response?.data?.detail || 'Search failed. Please try again.');
+      const errorMessage = error && typeof error === 'object' && 'response' in error 
+        ? ((error.response as { data?: { detail?: string } })?.data?.detail) || 'Search failed. Please try again.'
+        : 'Search failed. Please try again.';
+      setSearchError(errorMessage);
     } finally {
       setIsSearching(false);
     }

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import axios from 'axios';
 import { useAuth } from '../../contexts/AuthContext';
 import BottomNav from '../../components/BottomNav';
@@ -136,7 +137,7 @@ export default function HighlightsPage() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.6, delay: 0.1 }}
             >
-              <img src="/home.svg" alt="Home" className="w-6 h-6" />
+              <Image src="/home.svg" alt="Home" width={24} height={24} className="w-6 h-6" />
             </motion.button>
             <motion.h1 
               className="text-2xl font-semibold text-text-primary"
@@ -194,7 +195,7 @@ export default function HighlightsPage() {
                     poster={highlight.videos.thumbnail_url}
                     preload="metadata"
                     muted
-                    onError={(e) => {
+                    onError={() => {
                       console.error('Video failed to load:', highlight.videos.s3_link);
                       // You could show a fallback image or message here
                     }}
