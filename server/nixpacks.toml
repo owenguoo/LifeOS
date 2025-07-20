@@ -1,2 +1,2 @@
 [phases.setup]
-aptPkgs = ["...", "portaudio19-dev", "python3-dev"]
+aptPkgs = ["...", "portaudio19-dev", "python3-dev", "libasound-dev", "libportaudio2", "libportaudiocpp0", "libsndfile1-dev"]
