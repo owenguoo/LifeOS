@@ -1,3 +1,6 @@
 [phases.setup]
 nixPkgs = ["...", "portaudio", "alsa-lib", "pkg-config"]
-nixLibs = ["portaudio"]
+
+[phases.setup.env]
+NIX_CFLAGS_COMPILE = "-I${pkgs.portaudio.dev}/include"
+NIX_LDFLAGS        = "-L${pkgs.portaudio}/lib"
