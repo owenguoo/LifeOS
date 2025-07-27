@@ -7,6 +7,7 @@ import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthScreen from '@/components/AuthScreen';
 import BottomNav from '@/components/BottomNav';
+import AnimatedInputBar from '@/components/AnimatedInputBar';
 
 interface Message {
   id: string;
@@ -131,10 +132,10 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen flex flex-col bg-background/30">
       {/* Header */}
       <motion.header 
-        className="fixed py-4 top-12 left-12 right-12 z-20 glass-effect border-b border-border"
+        className="py-4 mt-8 mx-auto max-w-[301px] z-20 glass-effect border-b border-border"
         initial={{ opacity: 0, y: -50 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8 }}
@@ -163,8 +164,8 @@ export default function ChatPage() {
       </motion.header>
 
       {/* Messages */}
-      <main className="flex-1 pt-40 pb-56 px-6 overflow-y-auto">
-        <div className="container mx-auto max-w-2xl px-4">
+      <main className="flex-1 pt-4 pb-48 px-8 overflow-y-auto flex flex-col">
+        <div className="container mx-auto max-w-[301px] flex-1">
           <AnimatePresence>
             {messages.length === 0 ? (
               <motion.div
@@ -176,7 +177,7 @@ export default function ChatPage() {
                 <div className="space-y-4">
                   <div className="text-4xl mb-4">💬</div>
                   <h2 className="text-xl font-semibold text-text-primary">Start a conversation</h2>
-                  <p className="text-text-muted">Ask me about your memories, activities, or anything else!</p>
+                  <p className="text-text-primary">Ask me about your memories, recent activities, or anything else!</p>
                 </div>
               </motion.div>
             ) : (
@@ -193,7 +194,7 @@ export default function ChatPage() {
                     <div
                       className={`max-w-[80%] p-4 rounded-lg ${
                         message.isUser
-                          ? 'bg-primary text-white'
+                          ? 'rounded-2xl shadow-[0_4px_30px_rgba(0,0,0,0.1)] backdrop-blur-[5px] border border-white/30 bg-primary/50 text-white'
                           : 'glass-effect text-text-primary'
                       }`}
                     >
@@ -220,44 +221,25 @@ export default function ChatPage() {
           </AnimatePresence>
           <div ref={messagesEndRef} />
         </div>
-      </main>
 
-      {/* Input */}
-      <motion.div 
-        className="fixed bottom-40 left-4 right-4 z-20 py-4"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.2 }}
-      >
-        <div className="container mx-auto max-w-2xl px-6">
-          <div className="relative bg-[#0d0d0d] border border-gray-400 rounded-lg flex items-center">
-            <motion.textarea
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Ask me about anything..."
-              className="flex-1 bg-transparent border-none px-4 py-3 text-white placeholder-white/60 resize-none min-h-[48px] max-h-32 focus:outline-none text-lg"
-              rows={1}
-              disabled={isLoading}
-              style={{
-                scrollbarWidth: 'thin',
-                scrollbarColor: 'var(--border) transparent',
-              }}
-            />
-            <motion.button
-              onClick={sendMessage}
-              disabled={!inputValue.trim() || isLoading}
-              className="disabled:opacity-50 disabled:cursor-not-allowed p-3 mr-1 transition-opacity"
-              whileHover={{ scale: !inputValue.trim() || isLoading ? 1 : 1.1 }}
-              whileTap={{ scale: !inputValue.trim() || isLoading ? 1 : 0.9 }}
-            >
-              <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-              </svg>
-            </motion.button>
-          </div>
-        </div>
-      </motion.div>
+        {/* Input */}
+        <motion.div 
+          className="py-4"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+        >
+            <div className="container mx-auto max-w-2xl px-4">
+              <AnimatedInputBar
+                value={inputValue}
+                onChange={setInputValue}
+                onKeyPress={handleKeyPress}
+                onSend={sendMessage}
+                disabled={isLoading}
+              />
+            </div>
+        </motion.div>
+      </main>
 
       <BottomNav />
     </div>
