@@ -1,4 +1,4 @@
-# Dependencies
+# Dependencies 
 node_modules/
 __pycache__/
 *.py[cod]
@@ -32,6 +32,9 @@ env.bak/
 venv.bak/
 
 # IDE
+.cursor/rules
+.vscode
+.docs
 .vscode/settings.json
 .vscode/launch.json
 .idea/
