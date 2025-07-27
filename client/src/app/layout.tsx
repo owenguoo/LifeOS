@@ -25,14 +25,18 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
+    statusBarStyle: "black-translucent",
     title: "LifeOS",
+  },
+  icons: {
+    apple: "/logo.svg",
+    icon: "/logo.svg",
   },
   other: {
     "apple-mobile-web-app-capable": "yes",
-    "apple-mobile-web-app-status-bar-style": "default",
-    "apple-mobile-web-app-title": "LifeOS",
+    "apple-mobile-web-app-status-bar-style": "black-translucent",
     "mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-title": "LifeOS",
   },
 };
 
@@ -43,18 +47,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <head>
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="LifeOS" />
-        <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="theme-color" content="#000000" />
-        <meta name="msapplication-TileColor" content="#000000" />
-        <link rel="apple-touch-icon" href="/logo.svg" />
-        <link rel="icon" type="image/svg+xml" sizes="32x32" href="/logo.svg" />
-        <link rel="icon" type="image/svg+xml" sizes="16x16" href="/logo.svg" />
-        <link rel="manifest" href="/manifest.json" />
-      </head>
       <AuthProvider>
         <body
           className={`${onest.variable} ${geistSans.variable} ${geistMono.variable} antialiased`}
