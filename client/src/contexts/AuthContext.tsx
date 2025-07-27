@@ -3,7 +3,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import axios, { AxiosInstance } from 'axios';
 import config from '@/config';
-import { API_ENDPOINTS } from '@/lib/constants';
+import { API_ENDPOINTS } from '../lib/constants';
 
 interface AuthContextType {
   isAuthenticated: boolean;
