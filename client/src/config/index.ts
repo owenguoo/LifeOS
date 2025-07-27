@@ -101,10 +101,20 @@ export class NetworkError extends APIError {
   }
 }
 
-export const handleAPIError = (error: any): APIError => {
-  if (error.response) {
-    // Server responded with error status
-    const { status, data } = error.response;
+// Define possible error types that can be passed to handleAPIError
+type APIErrorInput = 
+  | { response: { status: number; data?: { message?: string; detail?: string } } } // HTTP response errors (like axios)
+  | { request: unknown } // Network errors
+  | { message: string } // Generic errors
+  | Error // Standard Error objects
+  | unknown; // Fallback for unexpected error types
+
+export const handleAPIError = (error: APIErrorInput): APIError => {
+  // Type guard for response errors (like axios errors)
+  if (error && typeof error === 'object' && 'response' in error && error.response && 
+      typeof error.response === 'object' && 'status' in error.response) {
+    const response = error.response as { status: number; data?: { message?: string; detail?: string } };
+    const { status, data } = response;
     const message = data?.message || data?.detail || 'API request failed';
     
     if (status === 401) {
@@ -112,11 +122,17 @@ export const handleAPIError = (error: any): APIError => {
     }
     
     return new APIError(message, status);
-  } else if (error.request) {
-    // Network error
+  } 
+  // Type guard for network errors
+  else if (error && typeof error === 'object' && 'request' in error) {
     return new NetworkError('Unable to connect to server');
-  } else {
-    // Other error
-    return new APIError(error.message || 'An unexpected error occurred');
+  } 
+  // Type guard for Error objects or objects with message property
+  else if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') {
+    return new APIError(error.message);
+  } 
+  // Fallback for unknown error types
+  else {
+    return new APIError('An unexpected error occurred');
   }
 };
