@@ -361,6 +361,28 @@ async def get_collection_stats():
         )
 
 
+@router.get("/recent-videos")
+async def get_recent_videos():
+    """Get recent videos"""
+    try:
+        recent_videos = await supabase_manager.get_user_videos(
+            user_id="3561affa-b551-483c-be4d-a35c7b57a3fb",
+            limit=20,
+            offset=0
+        )
+
+        return {
+            "total_videos": len(recent_videos),
+            "recent_videos": recent_videos[:10],  # Show last 10
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting recent videos: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get recent videos: {str(e)}",
+        )
+
 @router.get("/{memory_id}", response_model=MemoryResponse)
 async def get_memory(memory_id: UUID):
     """Get a specific memory by ID"""
@@ -388,28 +410,4 @@ async def get_memory(memory_id: UUID):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error",
-        )
-
-
-@router.get("/recent-videos")
-async def get_recent_videos():
-    """Get recent videos"""
-    try:
-        # Query Supabase for recent videos
-        recent_videos = await supabase_manager.get_user_videos(
-            user_id="3561affa-b551-483c-be4d-a35c7b57a3fb",
-            limit=20,  # Get more to ensure we capture today's events
-            offset=0
-        )
-
-        return {
-            "total_videos": len(recent_videos),
-            "recent_videos": recent_videos[:10],  # Show last 10
-        }
-
-    except Exception as e:
-        logger.error(f"Error getting recent videos: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get recent videos: {str(e)}",
         )
