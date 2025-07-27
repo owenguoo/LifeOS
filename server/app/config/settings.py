@@ -29,22 +29,26 @@ class Settings(BaseSettings):
     qdrant_api_key: Optional[str] = None
     
     # Supabase
-    supabase_url: Optional[str] = None
-    supabase_key: Optional[str] = None
-    supabase_anon_key: Optional[str] = None
+    supabase_url: Optional[str] = os.getenv("SUPABASE_URL")
+    supabase_key: Optional[str] = os.getenv("SUPABASE_KEY")
+    supabase_anon_key: Optional[str] = os.getenv("SUPABASE_ANON_KEY")
     
     # Auth
-    jwt_secret: Optional[str] = None
+    jwt_secret: Optional[str] = os.getenv("JWT_SECRET", "your-jwt-secret-key")
     
     # Camera/Video Processing
     camera_index: Optional[str] = os.getenv("CAMERA_INDEX", "0")
+    fps: int = int(os.getenv("VIDEO_FPS", "10"))
+    resolution: tuple = (int(os.getenv("VIDEO_WIDTH", "1280")), int(os.getenv("VIDEO_HEIGHT", "720")))
+    segment_duration: int = int(os.getenv("SEGMENT_DURATION", "10"))
+    
+    # Worker Settings
+    num_workers: int = int(os.getenv("NUM_WORKERS", "3"))
+    worker_batch_size: int = int(os.getenv("WORKER_BATCH_SIZE", "5"))
     
     # Google Calendar Integration
-    google_calendar_credentials_path: Optional[str] = None
-    google_calendar_id: Optional[str] = None
-    
-    supabase_url: Optional[str] = os.getenv("SUPABASE_URL")
-    supabase_key: Optional[str] = os.getenv("SUPABASE_KEY")
+    google_calendar_credentials_path: Optional[str] = os.getenv("GOOGLE_CALENDAR_CREDENTIALS_PATH")
+    google_calendar_id: Optional[str] = os.getenv("GOOGLE_CALENDAR_ID")
     
     class Config:
         env_file = ".env"

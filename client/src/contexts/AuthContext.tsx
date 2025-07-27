@@ -2,6 +2,8 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import axios, { AxiosInstance } from 'axios';
+import config from '@/config';
+import { API_ENDPOINTS } from '@/lib/constants';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -21,7 +23,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Create axios instance with auth interceptor
   const axiosInstance: AxiosInstance = axios.create({
-    baseURL: `${process.env.NEXT_PUBLIC_API_HOST}`,
+    baseURL: config.apiHost,
   });
 
   // Add auth token to requests
@@ -42,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Try to end video system before logout
     if (token) {
       try {
-        await axiosInstance.post('/api/v1/system/end');
+        await axiosInstance.post(API_ENDPOINTS.SYSTEM.END);
         console.log('Video system ended on logout');
       } catch (error) {
         console.error('Failed to end video system on logout:', error);
