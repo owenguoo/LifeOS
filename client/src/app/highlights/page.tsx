@@ -14,7 +14,7 @@ interface Highlight {
   videos: {
     video_id: string;
     title?: string;
-    s3_link: string; // Changed from s3_url to s3_link based on database schema
+    s3_link: string;
     thumbnail_url?: string;
     duration?: number;
     detailed_summary?: string;
@@ -134,7 +134,7 @@ export default function HighlightsPage() {
     <div className="min-h-screen flex flex-col">
       {/* Header */}
       <motion.header 
-        className="fixed py-4 top-12 left-12 right-12 z-20 glass-effect border-b border-border"
+        className="fixed py-4 top-12 left-0 right-0 mx-auto max-w-[301px] z-20 glass-effect border-b border-border"
         initial={{ opacity: 0, y: -50 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8 }}
@@ -202,11 +202,12 @@ export default function HighlightsPage() {
                   onClick={() => handleVideoClick(highlight)}
                 >
                   <video
-                    src={highlight.videos.s3_link}
+                    src={`${highlight.videos.s3_link}#t=0.001`}
                     className="w-full h-full object-cover"
                     poster={highlight.videos.thumbnail_url}
                     preload="metadata"
                     muted
+                    playsInline
                     onError={() => {
                       console.error('Video failed to load:', highlight.videos.s3_link);
                       // You could show a fallback image or message here
@@ -264,7 +265,7 @@ export default function HighlightsPage() {
             onClick={closeVideoModal}
           >
             <motion.div
-              className="relative w-full max-w-4xl mx-4 aspect-video bg-black rounded-lg overflow-hidden"
+              className="relative w-full max-w-4xl mx-4 bg-black rounded-lg overflow-hidden flex flex-col"
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.8, opacity: 0 }}
@@ -281,51 +282,44 @@ export default function HighlightsPage() {
                 </svg>
               </button>
 
-              {/* Video title */}
-              <div className="absolute top-4 left-4 z-10 max-w-md">
-                <div className="bg-black/50 px-3 py-2 rounded-lg">
-                  <h3 className="text-white text-lg font-semibold break-words">
-                    {'Summary'}
-                  </h3>
-                  {selectedVideo.videos.detailed_summary && (
-                    <div className="mt-2">
-                      <p 
-                        className={`text-white/90 text-sm leading-relaxed ${
-                          captionExpanded ? '' : 'overflow-hidden'
-                        }`}
-                        style={{
-                          display: captionExpanded ? 'block' : '-webkit-box',
-                          WebkitLineClamp: captionExpanded ? 'unset' : 2,
-                          WebkitBoxOrient: captionExpanded ? 'unset' : 'vertical',
-                          overflow: captionExpanded ? 'visible' : 'hidden'
-                        }}
-                      >
-                        {selectedVideo.videos.detailed_summary}
-                      </p>
-                      {selectedVideo.videos.detailed_summary.length > 100 && (
-                        <button
-                          onClick={() => setCaptionExpanded(!captionExpanded)}
-                          className="text-blue-400 hover:text-blue-300 text-xs mt-1 font-medium transition-colors"
-                        >
-                          {captionExpanded ? 'Show less' : 'Show more'}
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-
               {/* Video player */}
               <video
-                src={selectedVideo.videos.s3_link}
-                className="w-full h-full object-contain"
+                src={`${selectedVideo.videos.s3_link}#t=0.001`}
+                className="w-full aspect-video object-contain"
                 poster={selectedVideo.videos.thumbnail_url}
                 controls
                 autoPlay
+                playsInline
                 onError={() => {
                   console.error('Video failed to load in modal:', selectedVideo.videos.s3_link);
                 }}
               />
+              {/* Video summary */}
+              {selectedVideo.videos.detailed_summary && (
+                <div className="p-4 border-t border-border bg-black/90">
+                  <h3 className="text-white text-lg font-semibold mb-2">Summary</h3>
+                  <p
+                    className={`text-white/90 text-sm leading-relaxed ${
+                      captionExpanded ? '' : 'overflow-hidden'
+                    }`}
+                    style={{
+                      display: captionExpanded ? 'block' : '-webkit-box',
+                      WebkitLineClamp: captionExpanded ? 'unset' : 3,
+                      WebkitBoxOrient: captionExpanded ? 'unset' : 'vertical',
+                    }}
+                  >
+                    {selectedVideo.videos.detailed_summary}
+                  </p>
+                  {selectedVideo.videos.detailed_summary.length > 100 && (
+                    <button
+                      onClick={() => setCaptionExpanded(!captionExpanded)}
+                      className="text-blue-400 hover:text-blue-300 text-xs mt-2 font-medium transition-colors"
+                    >
+                      {captionExpanded ? 'Show less' : 'Show more'}
+                    </button>
+                  )}
+                </div>
+              )}
             </motion.div>
           </motion.div>
         )}
