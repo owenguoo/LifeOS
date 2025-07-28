@@ -135,7 +135,7 @@ export default function ChatPage() {
     <div className="min-h-screen flex flex-col bg-background/30">
       {/* Header */}
       <motion.header 
-        className="py-4 mt-8 mx-auto max-w-[301px] z-20 glass-effect border-b border-border"
+        className="py-4 mt-8 mx-auto w-[301px] z-20 glass-effect border-b border-border"
         initial={{ opacity: 0, y: -50 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8 }}

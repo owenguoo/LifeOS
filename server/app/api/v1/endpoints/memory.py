@@ -3,6 +3,9 @@ from uuid import UUID
 from datetime import datetime
 import time
 import logging
+import boto3
+import os
+from botocore.exceptions import ClientError
 
 from fastapi import APIRouter, HTTPException, Depends, status
 from fastapi.responses import JSONResponse
@@ -361,6 +364,63 @@ async def get_collection_stats():
         )
 
 
+# --- S3 helper functions (duplicated from highlights.py; should be refactored later) ---
+
+def _get_s3_client():
+    """Initialize and return a boto3 S3 client using env credentials."""
+    try:
+        return boto3.client(
+            "s3",
+            aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+            aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+            region_name=os.getenv("AWS_REGION", "us-east-2"),
+        )
+    except Exception as e:
+        logger.error(f"Failed to initialize S3 client: {e}")
+        return None
+
+
+def _generate_presigned_url(s3_url: str, expiration: int = 3600) -> str:
+    """Generate a presigned URL for the given S3 object.
+
+    Args:
+        s3_url: Direct S3 URL (https://bucket.s3.region.amazonaws.com/key)
+        expiration: Expiration time in seconds.
+
+    Returns:
+        Presigned URL or the original URL on failure.
+    """
+    try:
+        s3_client = _get_s3_client()
+        if not s3_client:
+            return s3_url
+
+        # Basic validation and parsing
+        if not s3_url.startswith("https://"):
+            return s3_url
+
+        without_proto = s3_url.replace("https://", "")
+        host_part, _, key_part = without_proto.partition("/")
+        if not host_part or not key_part:
+            return s3_url
+
+        host_segments = host_part.split(".")
+        if len(host_segments) < 3 or host_segments[1] != "s3":
+            return s3_url
+
+        bucket_name = host_segments[0]
+
+        presigned_url = s3_client.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": bucket_name, "Key": key_part},
+            ExpiresIn=expiration,
+        )
+        return presigned_url
+    except Exception as e:
+        logger.error(f"Failed to generate presigned URL for {s3_url}: {e}")
+        return s3_url
+
+
 @router.get("/recent-videos")
 async def get_recent_videos():
     """Get recent videos"""
@@ -368,8 +428,14 @@ async def get_recent_videos():
         recent_videos = await supabase_manager.get_user_videos(
             user_id="3561affa-b551-483c-be4d-a35c7b57a3fb",
             limit=20,
-            offset=0
+            offset=0,
         )
+
+        # Ensure each video has an accessible URL
+        for video in recent_videos:
+            s3_link = video.get("s3_link")
+            if s3_link:
+                video["s3_link"] = _generate_presigned_url(s3_link)
 
         return {
             "total_videos": len(recent_videos),

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { useAuth } from '../../contexts/AuthContext';
@@ -10,7 +10,7 @@ import BottomNav from '../../components/BottomNav';
 interface RecentVideo {
   video_id: string;
   timestamp: string;
-  summary: string;
+  detailed_summary: string;
   s3_link?: string;
   file_size?: number;
   processed_at: string;
@@ -29,6 +29,10 @@ export default function ActivitiesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // State for modal video view
+  const [selectedVideo, setSelectedVideo] = useState<RecentVideo | null>(null);
+  const [summaryExpanded, setSummaryExpanded] = useState(false);
+
   useEffect(() => {
     const fetchRecentVideos = async () => {
       try {
@@ -46,6 +50,16 @@ export default function ActivitiesPage() {
 
     fetchRecentVideos();
   }, [axiosInstance]);
+
+  // Handlers for opening/closing modal
+  const handleVideoClick = (video: RecentVideo) => {
+    setSelectedVideo(video);
+  };
+
+  const closeVideoModal = () => {
+    setSelectedVideo(null);
+    setSummaryExpanded(false);
+  };
 
   const formatTimestamp = (timestamp: string) => {
     try {
@@ -129,7 +143,7 @@ export default function ActivitiesPage() {
     <div className="min-h-screen flex flex-col">
       {/* Header */}
       <motion.header 
-        className="fixed py-4 top-12 left-12 right-12 z-20 glass-effect border-b border-border"
+        className="py-4 mt-8 mx-auto w-[301px] z-20 glass-effect border-b border-border"
         initial={{ opacity: 0, y: -50 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8 }}
@@ -146,27 +160,19 @@ export default function ActivitiesPage() {
               <Image src="/home.svg" alt="Home" width={24} height={24} className="w-6 h-6" />
             </motion.button>
             <motion.h1 
-              className="text-2xl font-semibold text-text-primary"
+              className="text-2xl font-semibold text-text-primary mx-auto"
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.6, delay: 0.2 }}
             >
               Recent Activities
             </motion.h1>
-            <motion.div 
-              className="text-sm text-text-secondary"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.6, delay: 0.3 }}
-            >
-              {recentVideos.length} activities
-            </motion.div>
           </div>
         </div>
       </motion.header>
 
       {/* Main Content */}
-      <main className="flex-1 pt-40 pb-20 px-4">
+      <main className="flex-1 pt-8 pb-40 px-4">
         <div className="container mx-auto max-w-4xl">
           {recentVideos.length === 0 ? (
             <motion.div 
@@ -196,54 +202,29 @@ export default function ActivitiesPage() {
                   whileTap={{ scale: 0.98 }}
                 >
                   <div className="flex items-start space-x-4">
-                    {/* Video thumbnail or icon */}
-                    <div className="flex-shrink-0">
-                      <div className="w-16 h-16 bg-gradient-to-br from-primary/20 to-primary/40 rounded-lg flex items-center justify-center">
-                        <svg className="w-8 h-8 text-primary" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M8 5v14l11-7z"/>
-                        </svg>
-                      </div>
+                    {/* Video thumbnail */}
+                    <div className="flex-shrink-0 cursor-pointer" onClick={() => handleVideoClick(video)}>
+                      <video
+                        src={`${video.s3_link}#t=0.001`}
+                        className="w-16 h-16 object-cover rounded-lg"
+                        preload="metadata"
+                        muted
+                        playsInline
+                      />
                     </div>
 
                     {/* Video content */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="text-sm text-text-tertiary">
-                          {formatTimestamp(video.timestamp)}
-                        </div>
-                        {video.file_size && (
-                          <div className="text-xs text-text-tertiary">
-                            {formatFileSize(video.file_size)}
-                          </div>
-                        )}
+                      <div className="mb-2 text-sm text-text-tertiary">
+                        {formatTimestamp(video.timestamp)}
                       </div>
                       
-                      <div className="text-text-primary font-medium mb-2 line-clamp-2">
-                        {video.summary}
+                      <div className="font-xs mb-2 line-clamp-2">
+                        {video.detailed_summary}
                       </div>
                       
-                      <div className="flex items-center space-x-4 text-xs text-text-secondary">
-                        <span>ID: {video.video_id.slice(0, 8)}...</span>
-                        {video.processed_at && (
-                          <span>Processed: {formatTimestamp(video.processed_at)}</span>
-                        )}
-                      </div>
+                      {/* Empty flex item to preserve layout spacing when needed */}
                     </div>
-
-                    {/* Action button */}
-                    {video.s3_link && (
-                      <div className="flex-shrink-0">
-                        <button
-                          onClick={() => window.open(video.s3_link, '_blank')}
-                          className="p-2 text-text-secondary hover:text-primary transition-colors"
-                          title="View video"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                          </svg>
-                        </button>
-                      </div>
-                    )}
                   </div>
                 </motion.div>
               ))}
@@ -251,6 +232,75 @@ export default function ActivitiesPage() {
           )}
         </div>
       </main>
+
+      {/* Video Modal */}
+      <AnimatePresence>
+        {selectedVideo && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={closeVideoModal}
+          >
+            <motion.div
+              className="relative w-full max-w-4xl mx-4 bg-black rounded-lg overflow-hidden flex flex-col"
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Close button */}
+              <button
+                onClick={closeVideoModal}
+                className="absolute top-4 right-4 z-10 w-8 h-8 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center transition-colors"
+              >
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+
+              {/* Video player */}
+              <video
+                src={`${selectedVideo.s3_link}#t=0.001`}
+                className="w-full aspect-video object-contain"
+                controls
+                autoPlay
+                playsInline
+                onError={() => {
+                  console.error('Video failed to load in modal:', selectedVideo.s3_link);
+                }}
+              />
+
+              {/* Video summary */}
+              {selectedVideo.detailed_summary && (
+                <div className="p-4 border-t border-border bg-black/90">
+                  <h3 className="text-white text-lg font-semibold mb-2">Summary</h3>
+                  <p
+                    className={`text-white/90 text-sm leading-relaxed ${summaryExpanded ? '' : 'overflow-hidden'}`}
+                    style={{
+                      display: summaryExpanded ? 'block' : '-webkit-box',
+                      WebkitLineClamp: summaryExpanded ? 'unset' : 3,
+                      WebkitBoxOrient: summaryExpanded ? 'unset' : 'vertical',
+                    }}
+                  >
+                    {selectedVideo.detailed_summary}
+                  </p>
+                  {selectedVideo.detailed_summary.length > 100 && (
+                    <button
+                      onClick={() => setSummaryExpanded(!summaryExpanded)}
+                      className="text-blue-400 hover:text-blue-300 text-xs mt-2 font-medium transition-colors"
+                    >
+                      {summaryExpanded ? 'Show less' : 'Show more'}
+                    </button>
+                  )}
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <BottomNav />
     </div>
