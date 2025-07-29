@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 import uvicorn
@@ -9,8 +9,7 @@ from app.services.vector_store import vector_store
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -19,7 +18,7 @@ app = FastAPI(
     title=settings.app_name,
     description="LifeOS Server - Personal IRL System with Vector Memory",
     version="1.0.0",
-    debug=settings.debug
+    debug=settings.debug,
 )
 
 # Add CORS middleware
@@ -36,7 +35,7 @@ app.add_middleware(
 async def startup_event():
     """Initialize services on startup"""
     logger.info("Starting LifeOS Server...")
-    
+
     # Initialize vector store collection
     try:
         success = await vector_store.initialize_collection()
@@ -64,7 +63,7 @@ async def root():
     return {
         "message": "LifeOS Server is running",
         "version": "1.0.0",
-        "status": "healthy"
+        "status": "healthy",
     }
 
 
@@ -75,24 +74,12 @@ async def health_check():
         vector_health = await vector_store.health_check()
         return {
             "status": "healthy" if vector_health else "unhealthy",
-            "services": {
-                "vector_store": "healthy" if vector_health else "unhealthy"
-            }
+            "services": {"vector_store": "healthy" if vector_health else "unhealthy"},
         }
     except Exception as e:
         logger.error(f"Health check failed: {e}")
-        return {
-            "status": "unhealthy",
-            "services": {
-                "vector_store": "unhealthy"
-            }
-        }
+        return {"status": "unhealthy", "services": {"vector_store": "unhealthy"}}
 
 
 if __name__ == "__main__":
-    uvicorn.run(
-        "app.main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=settings.debug
-    ) 
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=settings.debug)

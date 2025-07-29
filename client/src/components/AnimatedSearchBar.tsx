@@ -30,6 +30,7 @@ export default function AnimatedSearchBar({
   const [showResultsModal, setShowResultsModal] = useState(false);
   const [selectedResult, setSelectedResult] = useState<SearchResult | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showVideoModal, setShowVideoModal] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { axiosInstance } = useAuth();
@@ -74,6 +75,13 @@ export default function AnimatedSearchBar({
     setShowResultsModal(false);
   };
 
+  const handleVideoClick = (result: SearchResult, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedResult(result);
+    setShowVideoModal(true);
+    setShowResultsModal(false);
+  };
+
   const closeResultsModal = () => {
     setShowResultsModal(false);
     setSearchResults([]);
@@ -82,6 +90,11 @@ export default function AnimatedSearchBar({
 
   const closeDetailModal = () => {
     setShowDetailModal(false);
+    setSelectedResult(null);
+  };
+
+  const closeVideoModal = () => {
+    setShowVideoModal(false);
     setSelectedResult(null);
   };
 
@@ -246,11 +259,49 @@ export default function AnimatedSearchBar({
                       onClick={() => handleResultClick(result)}
                     >
                       <div className="flex items-start space-x-4">
-                        {/* Video Preview Placeholder */}
-                        <div className="w-20 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-white">
-                            <polygon points="5,3 19,12 5,21"></polygon>
-                          </svg>
+                        {/* Video Preview */}
+                        <div 
+                          className="w-20 h-16 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden relative group cursor-pointer"
+                          onClick={(e) => handleVideoClick(result, e)}
+                        >
+                          {result.s3_url ? (
+                            <video
+                              src={`${result.s3_url}#t=0.001`}
+                              className="w-full h-full object-cover"
+                              preload="metadata"
+                              muted
+                              playsInline
+                              onError={() => {
+                                console.error('Video failed to load:', result.s3_url);
+                              }}
+                              onMouseEnter={(e) => {
+                                const video = e.currentTarget as HTMLVideoElement;
+                                video.play().catch(() => {
+                                  // Ignore autoplay errors
+                                });
+                              }}
+                              onMouseLeave={(e) => {
+                                const video = e.currentTarget as HTMLVideoElement;
+                                video.pause();
+                                video.currentTime = 0;
+                              }}
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-white">
+                                <polygon points="5,3 19,12 5,21"></polygon>
+                              </svg>
+                            </div>
+                          )}
+                          
+                          {/* Play button overlay */}
+                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black/20">
+                            <div className="w-8 h-8 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
+                              <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M8 5v14l11-7z"/>
+                              </svg>
+                            </div>
+                          </div>
                         </div>
                         
                         <div className="flex-1 min-w-0">
@@ -346,6 +397,68 @@ export default function AnimatedSearchBar({
                   </div>
                 </div>
               </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Video Modal */}
+      <AnimatePresence>
+        {showVideoModal && selectedResult && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={closeVideoModal}
+          >
+            <motion.div
+              className="relative w-full max-w-4xl mx-4 bg-black rounded-lg overflow-hidden flex flex-col"
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Close button */}
+              <button
+                onClick={closeVideoModal}
+                className="absolute top-4 right-4 z-10 w-8 h-8 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center transition-colors"
+              >
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+
+              {/* Video player */}
+              {selectedResult.s3_url ? (
+                <video
+                  src={`${selectedResult.s3_url}#t=0.001`}
+                  className="w-full aspect-video object-contain"
+                  controls
+                  autoPlay
+                  playsInline
+                  onError={() => {
+                    console.error('Video failed to load in modal:', selectedResult.s3_url);
+                  }}
+                />
+              ) : (
+                <div className="w-full aspect-video bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                  <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-white">
+                    <polygon points="5,3 19,12 5,21"></polygon>
+                  </svg>
+                </div>
+              )}
+
+              {/* Video summary */}
+              {selectedResult.detailed_summary && (
+                <div className="p-4 border-t border-white/20 bg-black/90">
+                  <h3 className="text-white text-lg font-semibold mb-2">Summary</h3>
+                  <p className="text-white/90 text-sm leading-relaxed whitespace-pre-wrap">
+                    {selectedResult.detailed_summary}
+                  </p>
+                </div>
+              )}
             </motion.div>
           </motion.div>
         )}

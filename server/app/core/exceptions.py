@@ -7,7 +7,7 @@ class LifeOSException(Exception):
         self,
         message: str,
         error_code: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None
+        details: Optional[Dict[str, Any]] = None,
     ):
         self.message = message
         self.error_code = error_code
@@ -36,21 +36,21 @@ class VectorStoreError(LifeOSException):
 
 
 class ExternalServiceError(LifeOSException):
-    def __init__(self, service: str, message: str, details: Optional[Dict[str, Any]] = None):
-        super().__init__(f"{service} service error: {message}", f"{service.upper()}_ERROR", details)
+    def __init__(
+        self, service: str, message: str, details: Optional[Dict[str, Any]] = None
+    ):
+        super().__init__(
+            f"{service} service error: {message}", f"{service.upper()}_ERROR", details
+        )
 
 
 def create_http_exception(
     status_code: int,
     message: str,
     error_code: Optional[str] = None,
-    details: Optional[Dict[str, Any]] = None
+    details: Optional[Dict[str, Any]] = None,
 ) -> HTTPException:
     return HTTPException(
         status_code=status_code,
-        detail={
-            "message": message,
-            "error_code": error_code,
-            "details": details or {}
-        }
+        detail={"message": message, "error_code": error_code, "details": details or {}},
     )

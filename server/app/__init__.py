@@ -1,1 +1,1 @@
-# LifeOS Server Application Package 
+# LifeOS Server Application Package

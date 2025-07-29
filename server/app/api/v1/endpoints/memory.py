@@ -1,14 +1,9 @@
-from typing import List, Dict, Any
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timezone
 import time
 import logging
-import boto3
-import os
-from botocore.exceptions import ClientError
 
 from fastapi import APIRouter, HTTPException, Depends, status
-from fastapi.responses import JSONResponse
 
 from app.schemas.memory import (
     MemoryCreateRequest,
@@ -25,6 +20,7 @@ from app.services.vector_store import vector_store
 from app.services.embedding_service import embedding_service
 from app.services.text_embedding_service import text_embedding_service
 from app.services.openai_service import openai_service
+from app.services.s3_service import s3_service
 from database.supabase_client import SupabaseManager
 from app.middleware.simple_auth import get_current_user
 from app.schemas.simple_auth import User
@@ -40,7 +36,9 @@ supabase_manager = SupabaseManager()
 
 
 @router.post("/create", response_model=MemoryResponse)
-async def create_memory(request: MemoryCreateRequest, current_user: User = Depends(get_current_user)):
+async def create_memory(
+    request: MemoryCreateRequest, current_user: User = Depends(get_current_user)
+):
     """Create a new memory with vector embedding"""
     try:
         # Process video file/URL to get embedding
@@ -74,7 +72,7 @@ async def create_memory(request: MemoryCreateRequest, current_user: User = Depen
             user_id=UUID(current_user.id),
             content=request.content,  # This will be the video file path or URL
             content_type="video",  # Always video since we only store videos
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             metadata={},  # Not stored in vector payload
             tags=[],  # Not stored in vector payload
             source_id=None,  # Not stored in vector payload
@@ -111,7 +109,9 @@ async def create_memory(request: MemoryCreateRequest, current_user: User = Depen
 
 
 @router.post("/search", response_model=MemorySearchResponse)
-async def search_memories(request: MemorySearchRequest, current_user: User = Depends(get_current_user)):
+async def search_memories(
+    request: MemorySearchRequest, current_user: User = Depends(get_current_user)
+):
     """Search memories using semantic similarity"""
     try:
         start_time = time.time()
@@ -142,13 +142,18 @@ async def search_memories(request: MemorySearchRequest, current_user: User = Dep
             video_data = await supabase_manager.get_video_analysis(result.video_id)
 
             if video_data:
+                # Generate presigned URL for S3 link if available
+                s3_url = video_data.get("s3_link")
+                if s3_url:
+                    s3_url = s3_service.generate_presigned_url(s3_url)
+
                 enriched_result = {
                     "id": str(result.id),
                     "video_id": result.video_id,
                     "timestamp": result.timestamp.isoformat(),
                     "score": result.score,
                     # Add Supabase data
-                    "s3_url": video_data.get("s3_link"),
+                    "s3_url": s3_url,
                     "detailed_summary": video_data.get("detailed_summary"),
                     "file_size": video_data.get("file_size"),
                     "processed_at": video_data.get("processed_at"),
@@ -190,7 +195,9 @@ async def search_memories(request: MemorySearchRequest, current_user: User = Dep
 
 
 @router.post("/chatbot", response_model=ChatbotQueryResponse)
-async def chatbot_query(request: ChatbotQueryRequest, current_user: User = Depends(get_current_user)):
+async def chatbot_query(
+    request: ChatbotQueryRequest, current_user: User = Depends(get_current_user)
+):
     """Chatbot endpoint that refines user input and finds the best matching video"""
     try:
         start_time = time.time()
@@ -213,37 +220,40 @@ async def chatbot_query(request: ChatbotQueryRequest, current_user: User = Depen
         results = await vector_store.search_memories(
             user_id=UUID(current_user.id),
             query_vector=query_embedding,
-            limit=10,  # Get top 10 matches
+            limit=10,
             score_threshold=request.confidence_threshold or 0.01,
         )
 
         processing_time = (time.time() - start_time) * 1000
 
-        # Step 4: Collect context from all relevant videos 
+        # Step 4: Collect context from all relevant videos
         if results and len(results) > 0:
             # Collect video contexts from all results
             video_contexts = []
-            best_match = results[0]  # Keep track of the best match for backwards compatibility
-            
+            best_match = results[
+                0
+            ]  # Keep track of the best match for backwards compatibility
+
             for result in results:
                 # Fetch video data from Supabase using video_id
                 video_data = await supabase_manager.get_video_analysis(result.video_id)
-                
+
                 if video_data:
                     context = {
                         "timestamp": result.timestamp.isoformat(),
-                        "summary": video_data.get("detailed_summary", "No summary available"),
+                        "summary": video_data.get(
+                            "detailed_summary", "No summary available"
+                        ),
                         "confidence_score": result.score,
-                        "video_id": result.video_id
+                        "video_id": result.video_id,
                     }
                     video_contexts.append(context)
-            
+
             # Step 5: Generate AI response using all video contexts
             ai_response = openai_service.generate_contextual_response(
-                user_question=request.user_input,
-                video_contexts=video_contexts
+                user_question=request.user_input, video_contexts=video_contexts
             )
-            
+
             # If we have contexts, return comprehensive response
             if video_contexts:
                 return ChatbotQueryResponse(
@@ -253,7 +263,9 @@ async def chatbot_query(request: ChatbotQueryRequest, current_user: User = Depen
                     ai_response=ai_response,
                     video_id=best_match.video_id,  # Still include best match for backwards compatibility
                     timestamp=best_match.timestamp.isoformat(),
-                    summary=video_contexts[0].get("summary") if video_contexts else None,
+                    summary=video_contexts[0].get("summary")
+                    if video_contexts
+                    else None,
                     confidence_score=best_match.score,
                     processing_time_ms=processing_time,
                 )
@@ -298,6 +310,7 @@ async def health_check():
         video_embedding_health = embedding_service.health_check()
         text_embedding_health = text_embedding_service.health_check()
         openai_health = openai_service.health_check()
+        s3_health = s3_service.health_check()
 
         return {
             "vector_store": "healthy" if vector_health else "unhealthy",
@@ -308,12 +321,14 @@ async def health_check():
                 "healthy" if text_embedding_health else "unhealthy"
             ),
             "openai_service": "healthy" if openai_health else "unhealthy",
+            "s3_service": "healthy" if s3_health else "unhealthy",
             "overall": (
                 "healthy"
                 if vector_health
                 and video_embedding_health
                 and text_embedding_health
                 and openai_health
+                and s3_health
                 else "unhealthy"
             ),
         }
@@ -364,63 +379,6 @@ async def get_collection_stats():
         )
 
 
-# --- S3 helper functions (duplicated from highlights.py; should be refactored later) ---
-
-def _get_s3_client():
-    """Initialize and return a boto3 S3 client using env credentials."""
-    try:
-        return boto3.client(
-            "s3",
-            aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
-            aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
-            region_name=os.getenv("AWS_REGION", "us-east-2"),
-        )
-    except Exception as e:
-        logger.error(f"Failed to initialize S3 client: {e}")
-        return None
-
-
-def _generate_presigned_url(s3_url: str, expiration: int = 3600) -> str:
-    """Generate a presigned URL for the given S3 object.
-
-    Args:
-        s3_url: Direct S3 URL (https://bucket.s3.region.amazonaws.com/key)
-        expiration: Expiration time in seconds.
-
-    Returns:
-        Presigned URL or the original URL on failure.
-    """
-    try:
-        s3_client = _get_s3_client()
-        if not s3_client:
-            return s3_url
-
-        # Basic validation and parsing
-        if not s3_url.startswith("https://"):
-            return s3_url
-
-        without_proto = s3_url.replace("https://", "")
-        host_part, _, key_part = without_proto.partition("/")
-        if not host_part or not key_part:
-            return s3_url
-
-        host_segments = host_part.split(".")
-        if len(host_segments) < 3 or host_segments[1] != "s3":
-            return s3_url
-
-        bucket_name = host_segments[0]
-
-        presigned_url = s3_client.generate_presigned_url(
-            "get_object",
-            Params={"Bucket": bucket_name, "Key": key_part},
-            ExpiresIn=expiration,
-        )
-        return presigned_url
-    except Exception as e:
-        logger.error(f"Failed to generate presigned URL for {s3_url}: {e}")
-        return s3_url
-
-
 @router.get("/recent-videos")
 async def get_recent_videos():
     """Get recent videos"""
@@ -435,7 +393,7 @@ async def get_recent_videos():
         for video in recent_videos:
             s3_link = video.get("s3_link")
             if s3_link:
-                video["s3_link"] = _generate_presigned_url(s3_link)
+                video["s3_link"] = s3_service.generate_presigned_url(s3_link)
 
         return {
             "total_videos": len(recent_videos),
@@ -448,6 +406,7 @@ async def get_recent_videos():
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get recent videos: {str(e)}",
         )
+
 
 @router.get("/{memory_id}", response_model=MemoryResponse)
 async def get_memory(memory_id: UUID):
