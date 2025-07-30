@@ -93,6 +93,20 @@ export default function HighlightsPage() {
     setCaptionExpanded(false);
   };
 
+  const formatTimestamp = (timestamp: string) => {
+    try {
+      const date = new Date(timestamp);
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch {
+      return 'Unknown time';
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -265,61 +279,73 @@ export default function HighlightsPage() {
             onClick={closeVideoModal}
           >
             <motion.div
-              className="relative w-full max-w-4xl mx-4 bg-black rounded-lg overflow-hidden flex flex-col"
-              initial={{ scale: 0.8, opacity: 0 }}
+              initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.8, opacity: 0 }}
-              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-[#0d0d0d] rounded-2xl p-6 w-full max-w-3xl mx-4 max-h-[90vh] overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Close button */}
-              <button
-                onClick={closeVideoModal}
-                className="absolute top-4 right-4 z-10 w-8 h-8 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center transition-colors"
-              >
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-semibold text-white">Video Details</h2>
+                <button
+                  onClick={closeVideoModal}
+                  className="text-white/60 hover:text-white transition-colors"
+                >
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </button>
+              </div>
 
-              {/* Video player */}
-              <video
-                src={`${selectedVideo.videos.s3_link}#t=0.001`}
-                className="w-full aspect-video object-contain"
-                poster={selectedVideo.videos.thumbnail_url}
-                controls
-                autoPlay
-                playsInline
-                onError={() => {
-                  console.error('Video failed to load in modal:', selectedVideo.videos.s3_link);
-                }}
-              />
-              {/* Video summary */}
-              {selectedVideo.videos.detailed_summary && (
-                <div className="p-4 border-t border-border bg-black/90">
-                  <h3 className="text-white text-lg font-semibold mb-2">Summary</h3>
-                  <p
-                    className={`text-white/90 text-sm leading-relaxed ${
-                      captionExpanded ? '' : 'overflow-hidden'
-                    }`}
-                    style={{
-                      display: captionExpanded ? 'block' : '-webkit-box',
-                      WebkitLineClamp: captionExpanded ? 'unset' : 3,
-                      WebkitBoxOrient: captionExpanded ? 'unset' : 'vertical',
+              <div className="space-y-6 max-h-[70vh] overflow-y-auto">
+                {/* Video Preview */}
+                {selectedVideo.videos.s3_link ? (
+                  <video
+                    src={`${selectedVideo.videos.s3_link}#t=0.001`}
+                    className="w-full h-48 object-cover rounded-lg"
+                    poster={selectedVideo.videos.thumbnail_url}
+                    controls
+                    autoPlay
+                    playsInline
+                    onError={() => {
+                      console.error('Video failed to load in modal:', selectedVideo.videos.s3_link);
                     }}
-                  >
-                    {selectedVideo.videos.detailed_summary}
-                  </p>
-                  {selectedVideo.videos.detailed_summary.length > 100 && (
-                    <button
-                      onClick={() => setCaptionExpanded(!captionExpanded)}
-                      className="text-blue-400 hover:text-blue-300 text-xs mt-2 font-medium transition-colors"
-                    >
-                      {captionExpanded ? 'Show less' : 'Show more'}
-                    </button>
+                  />
+                ) : (
+                  <div className="w-full h-48 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-white">
+                      <polygon points="5,3 19,12 5,21"></polygon>
+                    </svg>
+                  </div>
+                )}
+
+                {/* Metadata */}
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-white/60">Created:</span>
+                    <div className="text-white">{formatTimestamp(selectedVideo.created_at)}</div>
+                  </div>
+                  {selectedVideo.videos.duration && (
+                    <div>
+                      <span className="text-white/60">Duration:</span>
+                      <div className="text-white">{Math.floor(selectedVideo.videos.duration / 60)}:{(selectedVideo.videos.duration % 60).toString().padStart(2, '0')}</div>
+                    </div>
                   )}
                 </div>
-              )}
+
+                {/* Full Summary */}
+                {selectedVideo.videos.detailed_summary && (
+                  <div>
+                    <h3 className="text-lg font-semibold text-white mb-3">Summary</h3>
+                    <div className="bg-[#1a1a1a] rounded-lg p-4">
+                      <p className="text-white leading-relaxed whitespace-pre-wrap">
+                        {selectedVideo.videos.detailed_summary}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
             </motion.div>
           </motion.div>
         )}

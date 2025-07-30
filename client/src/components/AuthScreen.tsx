@@ -173,8 +173,8 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
                     onClick={() => switchMode('login')}
                     className={`flex-1 py-3 px-4 rounded-md text-sm font-medium transition-all duration-200 ${
                       authMode === 'login'
-                        ? 'bg-primary text-white shadow-sm'
-                        : 'text-text-secondary hover:text-text-primary'
+                        ? 'bg-gradient-to-r from-primary/90 to-primary/50 text-white shadow-md border border-primary/20'
+                        : 'text-text-secondary hover:text-text-primary hover:bg-surface/50'
                     }`}
                   >
                     Sign In
@@ -183,8 +183,8 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
                     onClick={() => switchMode('register')}
                     className={`flex-1 py-3 px-4 rounded-md text-sm font-medium transition-all duration-200 ${
                       authMode === 'register'
-                        ? 'bg-primary text-white shadow-sm'
-                        : 'text-text-secondary hover:text-text-primary'
+                        ? 'bg-gradient-to-r from-primary/90 to-primary/50 text-white shadow-md border border-primary/20'
+                        : 'text-text-secondary hover:text-text-primary hover:bg-surface/50'
                     }`}
                   >
                     Sign Up
