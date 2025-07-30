@@ -6,12 +6,30 @@ import AnimatedSearchBar from "../components/AnimatedSearchBar";
 import Widget from "../components/Widget";
 import BottomNav from "../components/BottomNav";
 import { useEffect, useState } from "react";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 
 export default function Home() {
   const { isAuthenticated, login, token, loading, axiosInstance } = useAuth();
   const [systemStarting, setSystemStarting] = useState(false);
   const [systemStatus, setSystemStatus] = useState<'stopped' | 'starting' | 'running' | 'error'>('stopped');
+  const [currentActivityIndex, setCurrentActivityIndex] = useState(0);
+
+  // TODO: Add an API route to get the daily activities
+  const activities = [
+    "pitched your project.",
+    "reunited with Owen.", 
+    "won at Hack the 6ix.",
+    "talked to recruiters.",
+  ];
+
+  // Cycle through activities every 4 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentActivityIndex((prevIndex) => (prevIndex + 1) % activities.length);
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [activities.length]);
 
   // Start video system when user is authenticated
   useEffect(() => {
@@ -119,12 +137,27 @@ export default function Home() {
               LifeOS
             </motion.h1>
             <motion.div 
-              className="text-xl text-text-secondary"
+              className="text-xl text-text-secondary flex items-center justify-center gap-1"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.6, delay: 0.8 }}
             >
-              Today you did 3 things.
+              <span>Today you</span>
+              <div className="relative w-48 h-8">
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={currentActivityIndex}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 1 }}
+                    className="absolute inset-0 flex items-center justify-start"
+                  >
+                    {activities[currentActivityIndex]}
+                  </motion.div>
+                </AnimatePresence>
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-text-secondary pr-8"></div>
+              </div>
             </motion.div>
           </div>
         </div>

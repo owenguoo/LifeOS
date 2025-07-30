@@ -30,7 +30,6 @@ export default function AnimatedSearchBar({
   const [showResultsModal, setShowResultsModal] = useState(false);
   const [selectedResult, setSelectedResult] = useState<SearchResult | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
-  const [showVideoModal, setShowVideoModal] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { axiosInstance } = useAuth();
@@ -75,13 +74,6 @@ export default function AnimatedSearchBar({
     setShowResultsModal(false);
   };
 
-  const handleVideoClick = (result: SearchResult, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setSelectedResult(result);
-    setShowVideoModal(true);
-    setShowResultsModal(false);
-  };
-
   const closeResultsModal = () => {
     setShowResultsModal(false);
     setSearchResults([]);
@@ -90,11 +82,7 @@ export default function AnimatedSearchBar({
 
   const closeDetailModal = () => {
     setShowDetailModal(false);
-    setSelectedResult(null);
-  };
-
-  const closeVideoModal = () => {
-    setShowVideoModal(false);
+    setShowResultsModal(true);
     setSelectedResult(null);
   };
 
@@ -262,7 +250,10 @@ export default function AnimatedSearchBar({
                         {/* Video Preview */}
                         <div 
                           className="w-20 h-16 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden relative group cursor-pointer"
-                          onClick={(e) => handleVideoClick(result, e)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleResultClick(result);
+                          }}
                         >
                           {result.s3_url ? (
                             <video
@@ -311,9 +302,6 @@ export default function AnimatedSearchBar({
                           <div className="text-white text-sm leading-relaxed">
                             {truncateSummary(result.detailed_summary)}
                           </div>
-                          <div className="text-xs text-white/40 mt-2">
-                            Confidence: {(result.score * 100).toFixed(1)}%
-                          </div>
                         </div>
                       </div>
                     </motion.div>
@@ -357,11 +345,24 @@ export default function AnimatedSearchBar({
 
               <div className="space-y-6 max-h-[70vh] overflow-y-auto">
                 {/* Video Preview */}
-                <div className="w-full h-48 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
-                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-white">
-                    <polygon points="5,3 19,12 5,21"></polygon>
-                  </svg>
-                </div>
+                {selectedResult.s3_url ? (
+                  <video
+                    src={`${selectedResult.s3_url}#t=0.001`}
+                    className="w-full h-48 object-cover rounded-lg"
+                    controls
+                    autoPlay
+                    playsInline
+                    onError={() => {
+                      console.error('Video failed to load in detail modal:', selectedResult.s3_url);
+                    }}
+                  />
+                ) : (
+                  <div className="w-full h-48 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-white">
+                      <polygon points="5,3 19,12 5,21"></polygon>
+                    </svg>
+                  </div>
+                )}
 
                 {/* Metadata */}
                 <div className="grid grid-cols-2 gap-4 text-sm">
@@ -402,67 +403,7 @@ export default function AnimatedSearchBar({
         )}
       </AnimatePresence>
 
-      {/* Video Modal */}
-      <AnimatePresence>
-        {showVideoModal && selectedResult && (
-          <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={closeVideoModal}
-          >
-            <motion.div
-              className="relative w-full max-w-4xl mx-4 bg-black rounded-lg overflow-hidden flex flex-col"
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.8, opacity: 0 }}
-              transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Close button */}
-              <button
-                onClick={closeVideoModal}
-                className="absolute top-4 right-4 z-10 w-8 h-8 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center transition-colors"
-              >
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
 
-              {/* Video player */}
-              {selectedResult.s3_url ? (
-                <video
-                  src={`${selectedResult.s3_url}#t=0.001`}
-                  className="w-full aspect-video object-contain"
-                  controls
-                  autoPlay
-                  playsInline
-                  onError={() => {
-                    console.error('Video failed to load in modal:', selectedResult.s3_url);
-                  }}
-                />
-              ) : (
-                <div className="w-full aspect-video bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-                  <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-white">
-                    <polygon points="5,3 19,12 5,21"></polygon>
-                  </svg>
-                </div>
-              )}
-
-              {/* Video summary */}
-              {selectedResult.detailed_summary && (
-                <div className="p-4 border-t border-white/20 bg-black/90">
-                  <h3 className="text-white text-lg font-semibold mb-2">Summary</h3>
-                  <p className="text-white/90 text-sm leading-relaxed whitespace-pre-wrap">
-                    {selectedResult.detailed_summary}
-                  </p>
-                </div>
-              )}
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </>
   );
 } 
