@@ -142,7 +142,7 @@ export default function Home() {
               animate={{ opacity: 1 }}
               transition={{ duration: 0.6, delay: 0.8 }}
             >
-              <span>Today you</span>
+              <span className="pr-0.5">Today you</span>
               <div className="relative w-48 h-8">
                 <AnimatePresence mode="wait">
                   <motion.div

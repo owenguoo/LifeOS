@@ -16,7 +16,6 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
 
   const handleGetStarted = () => {
     setAuthMode('login');
@@ -36,10 +35,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
       const token = response.data.token || response.data.access_token;
       
       if (token) {
-        setSuccess(true);
-        setTimeout(() => {
-          onAuthSuccess(token);
-        }, 1000);
+        onAuthSuccess(token);
       } else {
         setError('No token received from server');
       }
@@ -67,10 +63,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
       const token = response.data.token || response.data.access_token;
       
       if (token) {
-        setSuccess(true);
-        setTimeout(() => {
-          onAuthSuccess(token);
-        }, 1000);
+        onAuthSuccess(token);
       } else {
         setError('No token received from server');
       }
@@ -96,7 +89,6 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
     setPassword('');
     setError('');
     setLoading(false);
-    setSuccess(false);
   };
 
   return (
@@ -141,28 +133,8 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
             transition={{ duration: 0.5, ease: "easeInOut" }}
             className="w-full max-w-md mx-4"
           >
-            {success ? (
-              <motion.div
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                className="text-center"
-              >
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-                  className="w-16 h-16 bg-green-500 rounded-full mx-auto mb-4 flex items-center justify-center"
-                >
-                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                </motion.div>
-                <h2 className="text-2xl font-bold text-text-primary mb-2">Success!</h2>
-                <p className="text-text-secondary">Redirecting to LifeOS...</p>
-              </motion.div>
-            ) : (
-              <>
-                {/* Tab Navigation */}
+            <>
+              {/* Tab Navigation */}
                 <motion.div
                   initial={{ y: 20, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
@@ -302,7 +274,6 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
                   </button>
                 </motion.div>
               </>
-            )}
           </motion.div>
         )}
       </AnimatePresence>
