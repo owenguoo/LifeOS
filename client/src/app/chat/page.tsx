@@ -194,7 +194,7 @@ export default function ChatPage() {
                     <div
                       className={`max-w-[80%] p-4 rounded-lg ${
                         message.isUser
-                          ? 'rounded-2xl shadow-[0_4px_30px_rgba(0,0,0,0.1)] backdrop-blur-[5px] border border-white/30 bg-primary/50 text-white'
+                          ? 'rounded-2xl shadow-[0_4px_30px_rgba(0,0,0,0.1)] backdrop-blur-[5px] border border-white/30 bg-gradient-to-r from-primary/90 to-primary/20 text-white'
                           : 'glass-effect text-text-primary'
                       }`}
                     >
