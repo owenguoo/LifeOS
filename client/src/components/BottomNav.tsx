@@ -14,7 +14,7 @@ export default function BottomNav() {
       className="fixed bottom-0 left-0 right-0 z-20 glass-effect border-t border-border mb-16 max-w-[301px] mx-auto py-2"
       initial={{ opacity: 0, y: 50 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.8, delay: 1.4 }}
+      transition={{ duration: 0.8 }}
     >
       <div className="container mx-auto px-4 py-3">
         <div className="flex items-center justify-around">
@@ -96,7 +96,7 @@ export default function BottomNav() {
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
               />
             </motion.svg>
             <motion.span 
@@ -115,9 +115,10 @@ export default function BottomNav() {
             whileHover={{ scale: 1.1, y: -2 }}
             whileTap={{ scale: 0.95 }}
             transition={{ type: "spring", stiffness: 400, damping: 17 }}
+            onClick={() => router.push('/settings')}
           >
             <motion.svg
-              className="w-6 h-6 text-text-secondary"
+              className={`w-6 h-6 ${isActive('/settings') ? 'text-text-primary' : 'text-text-secondary'}`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -138,7 +139,7 @@ export default function BottomNav() {
               />
             </motion.svg>
             <motion.span 
-              className="text-xs text-text-secondary opacity-0 group-hover:opacity-100 absolute top-full mt-1 whitespace-nowrap"
+              className={`text-xs ${isActive('/settings') ? 'text-text-primary' : 'text-text-secondary'} opacity-0 group-hover:opacity-100 absolute top-full mt-1 whitespace-nowrap`}
               initial={{ opacity: 0, y: 5 }}
               whileHover={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.2 }}

@@ -1,7 +1,7 @@
 {
   "name": "LifeOS",
   "short_name": "LifeOS",
-  "description": "Your personal life management system",
+  "description": "A multi-modal MCP layer for real life",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#000000",
