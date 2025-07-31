@@ -159,9 +159,9 @@ class VideoProcessingWorker:
             linking_uuid = self.supabase_manager.generate_linking_uuid()
             print(f"Worker {self.worker_id} generated linking UUID: {linking_uuid}")
 
-            # Run TwelveLabs upload, S3 upload, and preprocessing in parallel
+            # Phase 1: Run TwelveLabs upload, S3 upload, and preprocessing in parallel
             upload_tasks = await asyncio.gather(
-                self.upload_video(video_path, metadata),
+                self.upload_video_optimized(video_path, metadata),  # Optimized version
                 asyncio.get_event_loop().run_in_executor(
                     None, self.s3_manager.upload_video_segment, video_path
                 ),
@@ -188,8 +188,9 @@ class VideoProcessingWorker:
             # Type assertion since we've already checked it's not an exception
             video_id = str(twelvelabs_video_id) if twelvelabs_video_id else ""
 
+            # Phase 2: Start analysis with optimized async version
             analysis_task = asyncio.create_task(
-                self.analyze_video(
+                self.analyze_video_optimized(
                     video_id, job.get("timestamp", time.time()), linking_uuid
                 )
             )
@@ -219,55 +220,59 @@ class VideoProcessingWorker:
             analysis["twelvelabs_video_id"] = twelvelabs_video_id
             analysis["linking_uuid"] = linking_uuid
 
-            # Store in Supabase instead of local file
+            # Phase 3: Start Supabase storage and automations in parallel
             user_id = job.get("metadata", {}).get("user_id")
-            print(f"Worker {self.worker_id} user_id from job: {user_id}")
-            supabase_uuid = await self.supabase_manager.insert_video_analysis(
-                analysis, user_id
+            timestamp = job.get("timestamp", time.time())
+            
+            # Start Supabase storage task
+            supabase_task = asyncio.create_task(
+                self.supabase_manager.insert_video_analysis(analysis, user_id)
             )
+            
+            # Start automation task if we have a summary
+            automation_task = None
+            summary = analysis.get("detailed_summary", "")
+            if summary:
+                automation_metadata = {
+                    "video_id": linking_uuid,
+                    "user_id": user_id,
+                    "timestamp": analysis.get("datetime"),
+                    "source": "video_processing",
+                    "worker_id": self.worker_id,
+                }
+                automation_task = asyncio.create_task(
+                    self.run_automations_with_retry(
+                        video_id=linking_uuid,
+                        summary=summary,
+                        metadata=automation_metadata,
+                    )
+                )
+
+            # Wait for Supabase storage (critical path)
+            supabase_uuid = await supabase_task
 
             if supabase_uuid:
-                print(
-                    f"Worker {self.worker_id} stored analysis in Supabase: {supabase_uuid}"
-                )
+                print(f"Worker {self.worker_id} stored analysis in Supabase: {supabase_uuid}")
                 analysis["supabase_stored"] = True
-
-                # If embedding was pre-started, use that; otherwise start new one
+                
+                # Continue embedding processing in background
                 if embedding_future:
                     asyncio.create_task(
                         self.finalize_embedding(embedding_future, linking_uuid)
                     )
                 else:
-                    # Fallback: start embedding process
                     asyncio.create_task(
                         self.embed_and_store_video_with_retry(
                             video_path=video_path,
                             linking_uuid=linking_uuid,
-                            timestamp=job.get("timestamp", time.time()),
+                            timestamp=timestamp,
                         )
                     )
-
-                # Trigger automations based on the video summary
-                summary = analysis.get("detailed_summary", "")
-                if summary:
-                    automation_metadata = {
-                        "video_id": linking_uuid,
-                        "user_id": user_id,
-                        "timestamp": analysis.get("datetime"),
-                        "source": "video_processing",
-                        "worker_id": self.worker_id,
-                    }
-
-                    # Run automations asynchronously (don't block processing)
+                
+                # Log automation results (non-blocking)
+                if automation_task:
                     asyncio.create_task(
-                        self.run_automations_with_retry(
-                            video_id=linking_uuid,
-                            summary=summary,
-                            metadata=automation_metadata,
-                        )
-                    )
-                    print(
-                        f"Worker {self.worker_id} triggered automations for: {linking_uuid}"
+                        self._log_automation_completion(automation_task, linking_uuid)
                     )
             else:
                 print(f"Worker {self.worker_id} failed to store in Supabase")
@@ -278,6 +283,39 @@ class VideoProcessingWorker:
         except Exception as e:
             print(f"Worker {self.worker_id} error processing video segment: {e}")
             return {"error": str(e), "video_path": job.get("video_path", "unknown")}
+
+    async def upload_video_optimized(
+        self, video_path: str, metadata: Optional[Dict] = None
+    ) -> Optional[str]:
+        """Optimized async video upload to TwelveLabs with faster polling"""
+        try:
+            if not self.index_id:
+                await self.ensure_index()
+
+            if not self.index_id:
+                raise ValueError("Index ID not available")
+                
+            print(f"Worker {self.worker_id} uploading video: {video_path}")
+
+            # Create video indexing task
+            task = self.client.task.create(index_id=self.index_id, file=video_path)
+            print(f"Worker {self.worker_id} upload task created: {task.id}")
+
+            # Optimized async polling with shorter intervals
+            video_id = await self._wait_for_task_optimized(
+                task, polling_interval=0.5  # Reduced from 1.0s to 0.5s
+            )
+
+            if video_id:
+                print(f"Worker {self.worker_id} video processed: {video_id}")
+                return video_id
+            else:
+                print(f"Worker {self.worker_id} video processing failed")
+                return None
+
+        except Exception as e:
+            print(f"Worker {self.worker_id} error uploading video: {e}")
+            return None
 
     async def upload_video(
         self, video_path: str, metadata: Optional[Dict] = None
@@ -351,6 +389,88 @@ class VideoProcessingWorker:
 
         print(f"Worker {self.worker_id} task timed out after {max_wait_time}s")
         return None
+
+    async def _wait_for_task_optimized(
+        self, task, polling_interval: float = 0.5
+    ) -> Optional[str]:
+        """Optimized async task waiting with adaptive polling"""
+        max_wait_time = 180  # 3 minutes max wait
+        start_time = time.time()
+        consecutive_failures = 0
+        
+        # Adaptive polling: start fast, slow down if needed
+        current_interval = polling_interval
+        max_interval = 2.0
+
+        while time.time() - start_time < max_wait_time:
+            try:
+                # Get fresh task status from API
+                current_task = self.client.task.retrieve(task.id)
+                consecutive_failures = 0  # Reset on success
+
+                if current_task.status == "ready":
+                    return current_task.video_id
+                elif current_task.status in ["failed", "error"]:
+                    print(f"Worker {self.worker_id} task failed: {current_task.status}")
+                    return None
+                elif current_task.status == "processing":
+                    # Speed up polling during active processing
+                    current_interval = min(polling_interval, current_interval)
+                else:
+                    # Slow down for pending states
+                    current_interval = min(max_interval, current_interval * 1.2)
+
+                await asyncio.sleep(current_interval)
+
+            except Exception as e:
+                consecutive_failures += 1
+                print(f"Worker {self.worker_id} error checking task status: {e}")
+                
+                # Exponential backoff on failures
+                failure_backoff = min(max_interval, 0.1 * (2 ** consecutive_failures))
+                await asyncio.sleep(failure_backoff)
+
+        print(f"Worker {self.worker_id} task timed out after {max_wait_time}s")
+        return None
+
+    async def analyze_video_optimized(
+        self, video_id: str, timestamp: float, linking_uuid: str
+    ) -> Dict:
+        """Optimized async video analysis using TwelveLabs Pegasus with retry logic"""
+        max_retries = 3
+        
+        for attempt in range(max_retries):
+            try:
+                # Run in executor to avoid blocking
+                loop = asyncio.get_event_loop()
+                generation_result = await loop.run_in_executor(
+                    None,
+                    lambda: self.client.generate.text(
+                        video_id=video_id,
+                        prompt="Provide a detailed summary of what's happening in this video segment, including any people, objects, actions, and conversations.",
+                    )
+                )
+
+                return {
+                    "video_id": linking_uuid,
+                    "timestamp": timestamp,
+                    "datetime": datetime.fromtimestamp(timestamp).isoformat(),
+                    "detailed_summary": generation_result.data,
+                }
+
+            except Exception as e:
+                print(f"Worker {self.worker_id} analysis attempt {attempt + 1} failed: {e}")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(0.5 * (attempt + 1))  # Progressive backoff
+                    continue
+                
+                # Final attempt failed
+                return {
+                    "video_id": linking_uuid,
+                    "timestamp": timestamp,
+                    "datetime": datetime.fromtimestamp(timestamp).isoformat(),
+                    "detailed_summary": f"Error after {max_retries} attempts: {str(e)}",
+                }
 
     async def analyze_video(
         self, video_id: str, timestamp: float, linking_uuid: str
@@ -625,3 +745,15 @@ class VideoProcessingWorker:
 
         print(f"Worker {self.worker_id} automation failed after {max_retries} attempts")
         return False
+    
+    async def _log_automation_completion(self, automation_task, linking_uuid: str):
+        """Log automation completion without blocking main processing"""
+        try:
+            result = await automation_task
+            if result:
+                triggered = result.get("automations_triggered", [])
+                print(f"Worker {self.worker_id} automations completed for {linking_uuid}: {len(triggered)} triggered")
+            else:
+                print(f"Worker {self.worker_id} automations failed for {linking_uuid}")
+        except Exception as e:
+            print(f"Worker {self.worker_id} automation error for {linking_uuid}: {e}")
