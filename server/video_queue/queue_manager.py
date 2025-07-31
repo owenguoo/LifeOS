@@ -89,8 +89,8 @@ class VideoQueueManager:
             if not self.redis:
                 await self.connect()
 
-            # Use BRPOP (blocking right pop) with configurable timeout
-            actual_timeout = timeout or getattr(Config, "WORKER_TIMEOUT", 2)
+            # Use shorter timeout for better responsiveness - workers check more frequently
+            actual_timeout = timeout or 0.5  # Reduced from 2s to 0.5s
             result = await self.redis.brpop([self.queue_name], timeout=actual_timeout)
 
             if result:
