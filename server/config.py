@@ -18,8 +18,8 @@ class Config:
     SEGMENT_DURATION = 10  # seconds
 
     # Performance optimizations
-    TWELVELABS_POLLING_INTERVAL = 1.0  # Reduced from 2s to 1s for faster uploads
-    WORKER_TIMEOUT = 2  # Reduced queue timeout for better responsiveness
+    TWELVELABS_POLLING_INTERVAL = 0.5  # Further reduced to 0.5s for faster uploads
+    WORKER_TIMEOUT = 0.5  # Reduced queue timeout for better responsiveness
 
     # Camera settings (Mac FaceTime HD)
     CAMERA_INDEX = os.getenv("CAMERA_INDEX")
